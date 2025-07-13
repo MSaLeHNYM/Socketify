@@ -37,5 +37,57 @@
 *.out
 *.app
 
-# debug information files
+# Debug information files
 *.dwo
+
+# Build directories
+build/
+bin/
+obj/
+
+# Temporary files
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# CMake build system
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Dependency directories
+deps/
+vendor/
+external/
+
+# Test and coverage files
+*.gcda
+*.gcno
+*.gcov
+coverage/
+
+# Logs and runtime files
+*.log
+*.pid
+*.sock
+
+# macOS-specific
+.DS_Store
+
+# Documentation build files
+docs/_build/
+docs/html/
+docs/latex/
+
+# Local configuration files
+config.local
+.env
