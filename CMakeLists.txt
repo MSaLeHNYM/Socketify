@@ -1,38 +1,68 @@
 cmake_minimum_required(VERSION 3.14)
-project(Socketify LANGUAGES CXX)
+project(socketify LANGUAGES CXX)
 
-# C++17 Standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Source and header files
-file(GLOB_RECURSE HEADERS "header/*.h")
-file(GLOB_RECURSE SOURCES "src/*.cpp")
+# Set output directories
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Include headers (for build)
+include_directories(${CMAKE_SOURCE_DIR}/header)
+
+# Source files
+file(GLOB_RECURSE SOCKETIFY_HEADERS ${CMAKE_SOURCE_DIR}/header/*.h ${CMAKE_SOURCE_DIR}/header/json.hpp)
+file(GLOB_RECURSE SOCKETIFY_SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
 # Create static library
-add_library(socketify STATIC ${SOURCES} ${HEADERS})
+add_library(socketify STATIC ${SOCKETIFY_SOURCES} ${SOCKETIFY_HEADERS})
 
-# Include headers (build + install)
-target_include_directories(socketify
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/header>
-        $<INSTALL_INTERFACE:include>
-)
+# Alias for usage by downstream projects
+add_library(socketify::socketify ALIAS socketify)
 
-# Install the static library
+# Install library
 install(TARGETS socketify
-    EXPORT socketifyTargets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        EXPORT socketifyTargets
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
+
+# Install all headers EXCEPT json.hpp
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/header/
+        DESTINATION include/socketify
+        FILES_MATCHING PATTERN "*.h"
+        PATTERN "json.hpp" EXCLUDE)
+
+# Install json.hpp separately (to the same include folder)
+install(FILES ${CMAKE_SOURCE_DIR}/header/json.hpp
+        DESTINATION include/socketify)
+
+# Export for find_package support
+install(EXPORT socketifyTargets
+        FILE socketifyTargets.cmake
+        NAMESPACE socketify::
+        DESTINATION lib/cmake/socketify)
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/socketifyConfigVersion.cmake"
+    VERSION 1.0.0
+    COMPATIBILITY AnyNewerVersion
 )
 
-# Install headers
-install(DIRECTORY header/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/)
+# Configure package config file for find_package()
+configure_package_config_file(
+    "${CMAKE_SOURCE_DIR}/cmake/socketifyConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/socketifyConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/socketify
+)
 
-# Install CMake config export
-install(EXPORT socketifyTargets
-    FILE socketifyConfig.cmake
-    NAMESPACE socketify::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/socketify
+# Install the config files
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/socketifyConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/socketifyConfigVersion.cmake"
+    DESTINATION lib/cmake/socketify
 )

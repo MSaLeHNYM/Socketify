@@ -42,6 +42,10 @@ void Server::listen() {
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
 
+    if (inet_addr(host.c_str()) == INADDR_NONE) {
+        std::cerr << "Invalid IP address\n";
+        return;
+    }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr(host.c_str());
     address.sin_port = htons(port);
@@ -82,7 +86,15 @@ void Server::listen() {
                 HttpMethod http_method = method == "POST" ? HttpMethod::POST : HttpMethod::GET;
                 Json req_body;
 
-                // TODO: Parse JSON body if needed
+                size_t body_start = request_data.find("\r\n\r\n");
+                if (body_start != std::string::npos) {
+                    std::string body = request_data.substr(body_start + 4);
+                    try {
+                        req_body = Json::parse(body);
+                    } catch (...) {
+                        // std::cerr << "[WARN] Failed to parse JSON body\n";
+                    }
+                }
 
                 Request req(http_method, path, req_body);
                 Response res;
@@ -104,4 +116,4 @@ void Server::listen() {
     }
 }
 
-}
+} // namespace socketify

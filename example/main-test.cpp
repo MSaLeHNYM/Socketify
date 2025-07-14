@@ -5,23 +5,15 @@
 #include <iostream>
 
 int main() {
-    socketify::Server server(8080);
-    server.set_host("127.0.0.1");
+    socketify::Server server(80);
+    server.set_host("0.0.0.0");
 
     server.get("/", [](const socketify::Request& req, socketify::Response& res) {
         nlohmann::json msg = {
-            {"message", "Hello from GET!"}
+            {"message", "This Is Cool Message"}
         };
         res.set_status(200);
         res.set_body(msg);
-    });
-
-    server.post("/data", [](const socketify::Request& req, socketify::Response& res) {
-        nlohmann::json response = {
-            {"received", req.body}
-        };
-        res.set_status(200);
-        res.set_body(response);
     });
 
     server.listen();

@@ -20,4 +20,4 @@ RouteHandler Router::match(HttpMethod method, const std::string& path) {
     return nullptr;
 }
 
-}
+} // namespace socketify
