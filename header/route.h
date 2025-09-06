@@ -1,20 +1,36 @@
+// SPDX-License-Identifier: MIT
 #pragma once
-
+#include "http.h"
 #include "request.h"
 #include "response.h"
 
+#include <functional>
+#include <regex>
+#include <string>
+#include <string_view>
+#include <vector>
+
 namespace socketify {
 
-using RouteHandler = std::function<void(const Request&, Response&)>;
+// Define Handler here so this header doesn't depend on server.h
+using Handler = std::function<void(Request&, Response&)>;
 
-class Router {
-    std::unordered_map<std::string, RouteHandler> get_routes;
-    std::unordered_map<std::string, RouteHandler> post_routes;
-
-public:
-    void get(const std::string& path, RouteHandler handler);
-    void post(const std::string& path, RouteHandler handler);
-    RouteHandler match(HttpMethod method, const std::string& path);
+struct Route {
+    HttpMethod method;
+    std::string pattern;                // e.g. "/users/:id"
+    std::regex  re;                     // compiled regex
+    std::vector<std::string> param_names;
+    Handler     handler;
 };
 
-}
+class Router {
+public:
+    void add(HttpMethod m, const std::string& pattern, Handler h);
+    // returns true if matched/handled
+    bool dispatch(Request& req, Response& res) const;
+
+private:
+    std::vector<Route> routes_;
+};
+
+} // namespace socketify
