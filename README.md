@@ -38,3 +38,4 @@ cd socketify
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
+    
