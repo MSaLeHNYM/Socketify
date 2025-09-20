@@ -3,6 +3,7 @@
 
 #include "socketify/http.h"
 #include "socketify/router.h"
+#include "socketify/compression.h"   // <-- NEW
 
 #include <atomic>
 #include <cstdint>
@@ -43,6 +44,9 @@ struct ServerOptions {
     int idle_timeout_ms{60000};
 
     bool enable_request_logging{true};
+
+    // NEW: compression configuration
+    compression::Options compression{};
 };
 
 // --- Server class ---
@@ -51,33 +55,25 @@ public:
     explicit Server(ServerOptions opts = {});
     ~Server();
 
-    // Global middleware
     Server& Use(Middleware mw) { router_.Use(std::move(mw)); return *this; }
-
-    // Routes
     Route& AddRoute(Method m, std::string_view path, Handler h) {
         return router_.AddRoute(m, path, std::move(h));
     }
-
-    // Groups
     Router::RouteGroup Group(std::string_view prefix) { return router_.Group(prefix); }
 
-    // Run/Stop
     bool Run(std::string_view ip, uint16_t port);
     void Stop();
 
-    // Errors
     using ErrorHandler = std::function<void(const std::string&)>;
     void OnError(ErrorHandler h) { on_error_ = std::move(h); }
 
-    // Access
     const ServerOptions& options() const noexcept { return opts_; }
     Router& router() noexcept { return router_; }
     const Router& router() const noexcept { return router_; }
 
 private:
-    ServerOptions opts_;
-    Router        router_;
+    ServerOptions  opts_;
+    Router         router_;
 
     int              listen_fd_{-1};
     std::atomic<bool> running_{false};
@@ -85,17 +81,15 @@ private:
 
     ErrorHandler  on_error_{};
 
-    // acceptor
     void accept_loop_();
     static int  create_listen_socket_(std::string_view ip, uint16_t port, int backlog, std::string& err);
 
-    // per-connection handling
     void handle_connection_(int client_fd);
     static bool write_all_(int fd, const void* buf, size_t len);
 
-    // HTTP serialization
-    static std::string serialize_response_(const Response& res);
-    static std::string make_date_header_(); // RFC7231 IMF-fixdate
+    // HTTP serialization (NOW needs Request to negotiate compression)
+    static std::string serialize_response_(const Request& req, const Response& res, const ServerOptions& opts);
+    static std::string make_date_header_();
     static bool should_close_(const Request& req, const Response& res);
 };
 

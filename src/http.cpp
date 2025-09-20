@@ -1,90 +1,83 @@
-// socketify/src/http.cpp — implementation for http.h
-
+// src/http.cpp
 #include "socketify/http.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 
 namespace socketify {
 
-// --------- small string helpers (ASCII only) ----------
-static inline char ascii_lower(char c) {
+// ------------------------------
+// case-insensitive helpers
+// ------------------------------
+static inline char tolower_ascii(char c) {
     unsigned char uc = static_cast<unsigned char>(c);
     if (uc >= 'A' && uc <= 'Z') return static_cast<char>(uc - 'A' + 'a');
-    return static_cast<char>(uc);
-}
-
-static inline bool iequal_ascii(std::string_view a, std::string_view b) {
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (ascii_lower(a[i]) != ascii_lower(b[i])) return false;
-    }
-    return true;
+    return static_cast<char>(c);
 }
 
 std::size_t ci_hash::operator()(std::string_view s) const noexcept {
-    // Simple Fowler–Noll–Vo (FNV-1a) with ASCII lower
+    // FNV-1a with lowercased ascii
     std::size_t h = 1469598103934665603ull;
     for (char c : s) {
-        h ^= static_cast<unsigned char>(ascii_lower(c));
+        h ^= static_cast<unsigned char>(tolower_ascii(c));
         h *= 1099511628211ull;
     }
     return h;
 }
+
 bool ci_equal::operator()(std::string_view a, std::string_view b) const noexcept {
-    return iequal_ascii(a, b);
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (tolower_ascii(a[i]) != tolower_ascii(b[i])) return false;
+    }
+    return true;
 }
 
-// --------- Method <-> string ----------
+// ------------------------------
+// Methods
+// ------------------------------
 std::string_view to_string(Method m) {
     switch (m) {
-        case Method::GET:     return "GET";
-        case Method::POST:    return "POST";
-        case Method::PUT:     return "PUT";
-        case Method::PATCH:   return "PATCH";
-        case Method::DELETE_: return "DELETE";
-        case Method::HEAD:    return "HEAD";
-        case Method::OPTIONS: return "OPTIONS";
-        case Method::CONNECT: return "CONNECT";
-        case Method::TRACE:   return "TRACE";
-        case Method::ANY:     return "*";
-        case Method::UNKNOWN: default: return "UNKNOWN";
+        case Method::GET:      return "GET";
+        case Method::POST:     return "POST";
+        case Method::PUT:      return "PUT";
+        case Method::PATCH:    return "PATCH";
+        case Method::DELETE_:  return "DELETE";
+        case Method::OPTIONS:  return "OPTIONS";
+        case Method::HEAD:     return "HEAD";
+        case Method::CONNECT:  return "CONNECT";
+        case Method::TRACE:    return "TRACE";
+        case Method::ANY:      return "ANY";
+        default:               return "UNKNOWN";
     }
+}
+
+static inline bool ieq(std::string_view a, std::string_view b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i)
+        if (tolower_ascii(a[i]) != tolower_ascii(b[i])) return false;
+    return true;
 }
 
 Method method_from_string(std::string_view s) {
-    // Compare by length first (fast path), case-insensitive match
-    switch (s.size()) {
-        case 3:
-            if (iequal_ascii(s, "GET")) return Method::GET;
-            if (iequal_ascii(s, "PUT")) return Method::PUT;
-            break;
-        case 4:
-            if (iequal_ascii(s, "POST")) return Method::POST;
-            if (iequal_ascii(s, "HEAD")) return Method::HEAD;
-            break;
-        case 5:
-            if (iequal_ascii(s, "PATCH")) return Method::PATCH;
-            if (iequal_ascii(s, "TRACE")) return Method::TRACE;
-            break;
-        case 6:
-            if (iequal_ascii(s, "DELETE")) return Method::DELETE_;
-            break;
-        case 7:
-            if (iequal_ascii(s, "OPTIONS")) return Method::OPTIONS;
-            if (iequal_ascii(s, "CONNECT")) return Method::CONNECT;
-            break;
-        case 1:
-            if (s[0] == '*') return Method::ANY;
-            break;
-        default:
-            break;
-    }
+    if (ieq(s, "GET"))      return Method::GET;
+    if (ieq(s, "POST"))     return Method::POST;
+    if (ieq(s, "PUT"))      return Method::PUT;
+    if (ieq(s, "PATCH"))    return Method::PATCH;
+    if (ieq(s, "DELETE"))   return Method::DELETE_;
+    if (ieq(s, "OPTIONS"))  return Method::OPTIONS;
+    if (ieq(s, "HEAD"))     return Method::HEAD;
+    if (ieq(s, "TRACE"))    return Method::TRACE;
+    if (ieq(s, "CONNECT"))  return Method::CONNECT;
     return Method::UNKNOWN;
 }
 
-// --------- Status -> reason phrase ----------
+// ------------------------------
+// Status → reason phrase
+// ------------------------------
 std::string_view reason(Status s) {
     switch (s) {
         // 1xx
@@ -119,6 +112,7 @@ std::string_view reason(Status s) {
         case Status::PayloadTooLarge:     return "Payload Too Large";
         case Status::URITooLong:          return "URI Too Long";
         case Status::UnsupportedMediaType:return "Unsupported Media Type";
+        case Status::RangeNotSatisfiable: return "Range Not Satisfiable";
         case Status::TooManyRequests:     return "Too Many Requests";
 
         // 5xx
@@ -127,67 +121,58 @@ std::string_view reason(Status s) {
         case Status::BadGateway:          return "Bad Gateway";
         case Status::ServiceUnavailable:  return "Service Unavailable";
         case Status::GatewayTimeout:      return "Gateway Timeout";
+        default:                          return "Unknown";
     }
-    // Fallback: should never happen with enum coverage
-    return "Unknown";
 }
 
-// --------- MIME helpers ----------
-
-struct MimeRow { std::string_view ext; std::string_view mime; };
-static constexpr MimeRow kMimeTable[] = {
-    // html/css/js
-    { "html", "text/html" },
-    { "htm",  "text/html" },
-    { "css",  "text/css" },
-    { "js",   "application/javascript" },
-    { "mjs",  "application/javascript" },
-    // images
-    { "png",  "image/png" },
-    { "jpg",  "image/jpeg" },
-    { "jpeg", "image/jpeg" },
-    { "gif",  "image/gif" },
-    { "webp", "image/webp" },
-    { "svg",  "image/svg+xml" },
-    { "ico",  "image/x-icon" },
-    // fonts
-    { "woff", "font/woff" },
-    { "woff2","font/woff2" },
-    { "ttf",  "font/ttf" },
-    // data
-    { "json", "application/json" },
-    { "txt",  "text/plain; charset=utf-8" },
-    { "xml",  "application/xml" },
-    { "pdf",  "application/pdf" },
-    { "zip",  "application/zip" },
-    // audio/video (basic)
-    { "mp3",  "audio/mpeg" },
-    { "wav",  "audio/wav" },
-    { "mp4",  "video/mp4" },
-    { "mov",  "video/quicktime" },
-};
-
-static std::string_view lstrip_dot(std::string_view s) {
-    if (!s.empty() && s.front() == '.') return s.substr(1);
-    return s;
-}
+// ------------------------------
+// MIME helpers
+// ------------------------------
+static constexpr std::string_view kDefaultMime = "application/octet-stream";
 
 std::string_view mime_from_ext(std::string_view ext) {
-    ext = lstrip_dot(ext);
-    // Linear scan over small constexpr table (fast enough).
-    for (const auto& row : kMimeTable) {
-        if (iequal_ascii(ext, row.ext)) return row.mime;
+    // expect ext with dot, e.g. ".html"
+    // small table; extend as needed
+    struct Pair { std::string_view ext; std::string_view mime; };
+    static constexpr Pair table[] = {
+        {".html", "text/html; charset=utf-8"},
+        {".htm",  "text/html; charset=utf-8"},
+        {".css",  "text/css; charset=utf-8"},
+        {".js",   "application/javascript; charset=utf-8"},
+        {".mjs",  "application/javascript; charset=utf-8"},
+        {".json", "application/json; charset=utf-8"},
+        {".svg",  "image/svg+xml"},
+        {".png",  "image/png"},
+        {".jpg",  "image/jpeg"},
+        {".jpeg", "image/jpeg"},
+        {".gif",  "image/gif"},
+        {".webp", "image/webp"},
+        {".txt",  "text/plain; charset=utf-8"},
+        {".xml",  "application/xml; charset=utf-8"},
+        {".pdf",  "application/pdf"},
+        {".wasm", "application/wasm"},
+        {".ico",  "image/x-icon"}
+    };
+
+    // lowercase compare
+    auto lower = [](std::string_view s) {
+        std::string out(s);
+        for (auto& c : out) c = tolower_ascii(c);
+        return out;
+    };
+    std::string e = lower(ext);
+    for (const auto& p : table) {
+        if (e == p.ext) return p.mime;
     }
     return kDefaultMime;
 }
 
 std::string_view content_type_for_path(std::string_view path) {
-    // Find last '.' after last '/'
-    size_t slash = path.find_last_of('/');
-    size_t dot   = path.find_last_of('.');
+    auto dot   = path.rfind('.');
+    auto slash = path.rfind('/');
     if (dot == std::string_view::npos) return kDefaultMime;
     if (slash != std::string_view::npos && dot < slash) return kDefaultMime;
-    return mime_from_ext(path.substr(dot + 1));
+    return mime_from_ext(path.substr(dot));
 }
 
 } // namespace socketify
