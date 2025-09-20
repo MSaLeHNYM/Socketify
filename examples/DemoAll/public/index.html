@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Socketify Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preload" href="/app.js" as="script">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Socketify Demo</h1>
+    <p>Static files + CORS + API + compression</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>GET /api/hello</h2>
+      <button id="btn-hello">Fetch Hello</button>
+      <pre id="out-hello" class="out"></pre>
+    </section>
+
+    <section class="card">
+      <h2>POST /api/echo (JSON)</h2>
+      <textarea id="echo-input" rows="5">{ "name": "Saleh", "from": "Mint/Debian" }</textarea>
+      <button id="btn-echo">Send</button>
+      <pre id="out-echo" class="out"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Method 405 demo</h2>
+      <p>GET /api/pp should be 405 (Allow: POST)</p>
+      <button id="btn-pp">Try GET /api/pp</button>
+      <pre id="out-pp" class="out"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <small>Powered by <strong>Socketify</strong></small>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
