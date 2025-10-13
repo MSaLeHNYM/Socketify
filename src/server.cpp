@@ -16,6 +16,9 @@
 #include "socketify/detail/utils.h"
 #include "socketify/detail/socket.h"
 #include "socketify/detail/buffer.h"
+#include "socketify/compression.h"
+#include "socketify/cors.h"
+#include "socketify/static_files.h"
 
 using namespace std::chrono;
 

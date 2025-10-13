@@ -34,7 +34,7 @@ std::vector<Route::Seg> Router::compile_pattern_(std::string_view pattern) {
         if (part.front() == ':') {
             segs.push_back({Route::Seg::Param, std::string(part.substr(1))});
         } else if (part.front() == '*') {
-            segs.push_back({Route::Seg::Wildcard, std::string(part.substr(1))});
+            segs.push_back({Route::Seg::Wildcard, std::string("*")});
             break; // wildcard eats the rest
         } else {
             segs.push_back({Route::Seg::Static, std::string(part)});
@@ -45,18 +45,19 @@ std::vector<Route::Seg> Router::compile_pattern_(std::string_view pattern) {
 
 std::vector<std::string_view> Router::split_path_(std::string_view s) {
     std::vector<std::string_view> out;
-    size_t start = 0;
+    if (s.empty() || s == "/") return out;
+    size_t start = (s.front() == '/') ? 1 : 0;
     while (start < s.size()) {
         size_t pos = s.find('/', start);
         if (pos == std::string_view::npos) {
-            if (start < s.size()) out.emplace_back(s.substr(start));
+            out.emplace_back(s.substr(start));
             break;
         } else {
-            if (pos > start) out.emplace_back(s.substr(start, pos - start));
+            out.emplace_back(s.substr(start, pos - start));
             start = pos + 1;
         }
     }
-    return out; // "/" -> empty vector (root)
+    return out;
 }
 
 bool Router::starts_with_(std::string_view s, std::string_view pfx) {

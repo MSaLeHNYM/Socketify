@@ -1,0 +1,29 @@
+# socketify/packaging/SocketifyConfig.cmake.in
+#
+# This file is configured by CMake during the build process and installed
+# so that other CMake projects can find and use the socketify library.
+#
+# It defines the following variables:
+#   - Socketify_INCLUDE_DIRS: The include directories for socketify.
+#   - Socketify_LIBRARIES: The libraries to link against to use socketify.
+#   - Socketify_FOUND: True if the library was found.
+
+@PACKAGE_INIT@
+
+# Find dependencies (e.g., nlohmann_json, fmt)
+# If socketify had external dependencies, you would find them here.
+# find_package(nlohmann_json 3.2.0 REQUIRED)
+# find_package(fmt 8.0.0 REQUIRED)
+
+# Set the include directories from the install interface
+set_and_check(Socketify_INCLUDE_DIRS "@PACKAGE_INCLUDE_INSTALL_DIR@")
+
+# Set the library path from the install interface
+set_and_check(Socketify_LIBRARIES "@PACKAGE_LIB_INSTALL_DIR@/libsocker.a") # or .so
+
+# Import the targets file
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/SocketifyTargets.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/SocketifyTargets.cmake")
+endif()
+
+check_required_components(Socketify)
