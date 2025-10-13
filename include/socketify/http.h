@@ -12,21 +12,45 @@ namespace socketify {
 // ------------------------------
 // Case-insensitive string utils
 // ------------------------------
+/**
+ * @brief Case-insensitive hash function for strings.
+ */
 struct ci_hash {
+    /**
+     * @brief Computes the hash of a string in a case-insensitive manner.
+     * @param s The string to hash.
+     * @return The hash value.
+     */
     std::size_t operator()(std::string_view s) const noexcept;
 };
+
+/**
+ * @brief Case-insensitive equality comparison for strings.
+ */
 struct ci_equal {
+    /**
+     * @brief Compares two strings for equality in a case-insensitive manner.
+     * @param a The first string.
+     * @param b The second string.
+     * @return true if the strings are equal, false otherwise.
+     */
     bool operator()(std::string_view a, std::string_view b) const noexcept;
 };
 
 // ------------------------------
 // Header map (case-insensitive keys)
 // ------------------------------
+/**
+ * @brief A map for HTTP headers with case-insensitive keys.
+ */
 using HeaderMap = std::unordered_map<std::string, std::string, ci_hash, ci_equal>;
 
 // ------------------------------
 // Methods
 // ------------------------------
+/**
+ * @brief Enum representing HTTP methods.
+ */
 enum class Method {
     UNKNOWN = 0,
     GET, POST, PUT, PATCH,
@@ -36,13 +60,25 @@ enum class Method {
     ANY
 };
 
-// Declared here; defined in src/http.cpp
+/**
+ * @brief Converts an HTTP method enum to its string representation.
+ * @param m The HTTP method.
+ * @return A string view of the method.
+ */
 std::string_view to_string(Method m);
+/**
+ * @brief Converts a string to an HTTP method enum.
+ * @param s The string representation of the method.
+ * @return The corresponding Method enum value.
+ */
 Method method_from_string(std::string_view s);
 
 // ------------------------------
 // Status codes
 // ------------------------------
+/**
+ * @brief Enum representing HTTP status codes.
+ */
 enum class Status : unsigned short {
     // 1xx
     Continue            = 100,
@@ -87,7 +123,11 @@ enum class Status : unsigned short {
     GatewayTimeout      = 504
 };
 
-// Declared here; defined in src/http.cpp
+/**
+ * @brief Gets the reason phrase for an HTTP status code.
+ * @param s The HTTP status code.
+ * @return A string view of the reason phrase.
+ */
 std::string_view reason(Status s);
 
 // ------------------------------
@@ -109,7 +149,17 @@ inline constexpr std::string_view H_ContentRange    = "Content-Range";
 // ------------------------------
 // MIME helpers (declared; defined in src/http.cpp)
 // ------------------------------
+/**
+ * @brief Gets the MIME type for a file extension.
+ * @param ext The file extension.
+ * @return A string view of the MIME type.
+ */
 std::string_view mime_from_ext(std::string_view ext);
+/**
+ * @brief Gets the Content-Type for a file path.
+ * @param path The file path.
+ * @return A string view of the Content-Type.
+ */
 std::string_view content_type_for_path(std::string_view path);
 
 } // namespace socketify

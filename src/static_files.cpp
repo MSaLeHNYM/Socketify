@@ -228,6 +228,11 @@ static std::string list_directory_html(const fs::path& dir, std::string_view url
 
 // ---------- main middleware ----------
 
+/**
+ * @brief Creates a new middleware for serving static files.
+ * @param opts The options for serving static files.
+ * @return A middleware function.
+ */
 Middleware serve(Options opts) {
     opts.mount = normalize_mount(std::move(opts.mount));
 

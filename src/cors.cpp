@@ -80,6 +80,11 @@ static inline bool origin_allowed(const std::string& request_origin,
     return true;
 }
 
+/**
+ * @brief Creates a new CORS middleware.
+ * @param opts The CORS options.
+ * @return A middleware function.
+ */
 Middleware middleware(CorsOptions opts) {
     return [opts](Request& req, Response& res, Next next) {
         const auto origin = std::string(get_header(req.headers(), "Origin"));

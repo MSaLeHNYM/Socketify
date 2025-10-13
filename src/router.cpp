@@ -19,6 +19,11 @@ static inline bool iequal_ascii(std::string_view a, std::string_view b) {
     return true;
 }
 
+/**
+ * @brief Compiles a URL pattern into a sequence of segments.
+ * @param pattern The URL pattern.
+ * @return A vector of segments.
+ */
 std::vector<Route::Seg> Router::compile_pattern_(std::string_view pattern) {
     std::vector<Route::Seg> segs;
     if (pattern.empty()) {
@@ -43,6 +48,11 @@ std::vector<Route::Seg> Router::compile_pattern_(std::string_view pattern) {
     return segs;
 }
 
+/**
+ * @brief Splits a path into its segments.
+ * @param s The path.
+ * @return A vector of path segments.
+ */
 std::vector<std::string_view> Router::split_path_(std::string_view s) {
     std::vector<std::string_view> out;
     size_t start = 0;
@@ -59,11 +69,23 @@ std::vector<std::string_view> Router::split_path_(std::string_view s) {
     return out; // "/" -> empty vector (root)
 }
 
+/**
+ * @brief Checks if a string starts with a given prefix.
+ * @param s The string.
+ * @param pfx The prefix.
+ * @return true if the string starts with the prefix, false otherwise.
+ */
 bool Router::starts_with_(std::string_view s, std::string_view pfx) {
     return s.size() >= pfx.size() && std::equal(pfx.begin(), pfx.end(), s.begin());
 }
 
-// Match `path` against compiled `segs`. If matched, fill req.params().
+/**
+ * @brief Matches a path against a compiled pattern and binds URL parameters.
+ * @param path The path to match.
+ * @param segs The compiled pattern segments.
+ * @param req The request object to bind parameters to.
+ * @return true if the path matches the pattern, false otherwise.
+ */
 bool Router::match_and_bind_(std::string_view path,
                              const std::vector<Route::Seg>& segs,
                              Request& req) {
@@ -113,6 +135,12 @@ bool Router::match_and_bind_(std::string_view path,
 }
 
 // ---------- Router public API ----------
+/**
+ * @brief Dispatches a request to the appropriate handler.
+ * @param req The request object.
+ * @param res The response object.
+ * @return true if a route was matched, false otherwise.
+ */
 bool Router::dispatch(Request& req, Response& res) const {
     // Build a chain of GLOBAL middleware only, and let a terminal lambda
     // perform route lookup + per-route middleware + handler.

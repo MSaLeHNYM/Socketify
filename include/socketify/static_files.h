@@ -12,43 +12,78 @@
 
 namespace socketify::static_files {
 
+/**
+ * @brief Holds configuration options for serving static files.
+ */
 struct Options {
-    // Filesystem root to serve from. REQUIRED (we also expose a factory overload that fills this).
+    /**
+     * @brief The filesystem root to serve files from.
+     */
     std::string root;
 
-    // Mount path prefix (URL path that this middleware handles), default "/".
-    // Examples: "/", "/assets"
+    /**
+     * @brief The URL path that this middleware handles.
+     */
     std::string mount{"/"};
 
-    // If true (default), when a path doesn't map to a file here, call next().
-    // If false, respond 404 directly.
+    /**
+     * @brief Whether to call the next middleware if a file is not found.
+     */
     bool fallthrough{true};
 
-    // Auto-serve index files when a directory is requested (e.g., /docs/ -> /docs/index.html).
+    /**
+     * @brief Whether to automatically serve index files when a directory is requested.
+     */
     bool auto_index{true};
 
-    // Filenames considered as index (first existing wins).
+    /**
+     * @brief A list of filenames to be considered as index files.
+     */
     std::vector<std::string> index_names{"index.html", "index.htm"};
 
-    // If true, render a simple HTML listing for directories that don’t have an index.
+    /**
+     * @brief Whether to render a directory listing for directories that don't have an index file.
+     */
     bool directory_listing{false};
 
-    // If false, block paths with any dotfile segment (".hidden").
+    /**
+     * @brief Whether to allow serving hidden files.
+     */
     bool allow_hidden{false};
 
-    // Caching
+    /**
+     * @brief Whether to generate ETag headers.
+     */
     bool etag{true};
+    /**
+     * @brief Whether to generate Last-Modified headers.
+     */
     bool last_modified{true};
+    /**
+     * @brief The value for the Cache-Control max-age directive.
+     */
     int  cache_max_age{0};     // seconds; 0 => no Cache-Control emitted
+    /**
+     * @brief Whether to add the "immutable" directive to the Cache-Control header.
+     */
     bool immutable{false};     // add ", immutable" to Cache-Control
 
     // Content-Type detection is built-in (by file extension).
 };
 
-// Create middleware with explicit options (opts.root must be set).
+/**
+ * @brief Creates a new middleware for serving static files.
+ * @param opts The options for serving static files.
+ * @return A middleware function.
+ */
 Middleware serve(Options opts);
 
-// Convenience: pass (root, options-without-root)
+/**
+ * @brief Creates a new middleware for serving static files.
+ * @param root The filesystem root to serve files from.
+ * @param opts The options for serving static files.
+ * @return A middleware function.
+ */
 inline Middleware serve(const std::string& root, Options opts = {}) {
     Options o = std::move(opts);
     o.root = root;

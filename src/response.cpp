@@ -6,11 +6,22 @@
 
 namespace socketify {
 
+/**
+ * @brief Sets a header field.
+ * @param key The header key.
+ * @param value The header value.
+ * @return A reference to the Response object.
+ */
 Response& Response::set_header(std::string_view key, std::string_view value) {
     headers_[std::string(key)] = std::string(value);
     return *this;
 }
 
+/**
+ * @brief Sets a cookie.
+ * @param cookie_line The full cookie string.
+ * @return A reference to the Response object.
+ */
 Response& Response::set_cookie(std::string_view cookie_line) {
     // Multiple Set-Cookie headers are allowed; store as comma-joined fallback for now.
     // (Later we can keep a vector or multi-map; most servers send separate header lines.)
@@ -23,6 +34,12 @@ Response& Response::set_cookie(std::string_view cookie_line) {
     return *this;
 }
 
+/**
+ * @brief Sends a response with a body.
+ * @param body The response body.
+ * @param content_type The content type of the body.
+ * @return true if the response was sent successfully, false otherwise.
+ */
 bool Response::send(std::string_view body, std::string_view content_type) {
     if (ended_) return false;
     set_content_type(content_type);
@@ -36,6 +53,11 @@ bool Response::send(std::string_view body, std::string_view content_type) {
     return true;
 }
 
+/**
+ * @brief Sends a JSON response.
+ * @param j The JSON object.
+ * @return true if the response was sent successfully, false otherwise.
+ */
 bool Response::json(const nlohmann::json& j) {
     if (ended_) return false;
     std::string dump = j.dump(); // default: no pretty-print, UTF-8
@@ -47,6 +69,11 @@ bool Response::json(const nlohmann::json& j) {
     return true;
 }
 
+/**
+ * @brief Writes a chunk of data to the response body.
+ * @param chunk The data to write.
+ * @return true if the write was successful, false otherwise.
+ */
 bool Response::write(std::string_view chunk) {
     if (ended_) return false;
     // Accumulate into owned buffer (we'll set Content-Length in end()).
@@ -57,12 +84,20 @@ bool Response::write(std::string_view chunk) {
     return true;
 }
 
+/**
+ * @brief Finalizes the response.
+ */
 void Response::end() {
     if (ended_) return;
     set_header(H_ContentLength, std::to_string(body_.size()));
     ended_ = true;
 }
 
+/**
+ * @brief Redirects the client to a different URL.
+ * @param url The URL to redirect to.
+ * @param code The HTTP status code for the redirection.
+ */
 void Response::redirect(std::string_view url, std::uint16_t code) {
     if (ended_) return;
     status(code);
@@ -80,6 +115,13 @@ void Response::redirect(std::string_view url, std::uint16_t code) {
     ended_ = true;
 }
 
+/**
+ * @brief Sends a file as the response.
+ * @param fs_path The path to the file.
+ * @param download Whether to force a download.
+ * @param download_name The name to use for the downloaded file.
+ * @return true if the file was sent successfully, false otherwise.
+ */
 bool Response::send_file(std::string_view /*fs_path*/, bool /*download*/, std::string_view /*download_name*/) {
     // TODO(socketify): wire to detail::file_io with sendfile/streaming.
     // Returning false communicates "not implemented" to caller for now.

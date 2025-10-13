@@ -18,6 +18,11 @@ static inline char tolower_ascii(char c) {
     return static_cast<char>(c);
 }
 
+/**
+ * @brief Computes the hash of a string in a case-insensitive manner.
+ * @param s The string to hash.
+ * @return The hash value.
+ */
 std::size_t ci_hash::operator()(std::string_view s) const noexcept {
     // FNV-1a with lowercased ascii
     std::size_t h = 1469598103934665603ull;
@@ -28,6 +33,12 @@ std::size_t ci_hash::operator()(std::string_view s) const noexcept {
     return h;
 }
 
+/**
+ * @brief Compares two strings for equality in a case-insensitive manner.
+ * @param a The first string.
+ * @param b The second string.
+ * @return true if the strings are equal, false otherwise.
+ */
 bool ci_equal::operator()(std::string_view a, std::string_view b) const noexcept {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i) {
@@ -39,6 +50,11 @@ bool ci_equal::operator()(std::string_view a, std::string_view b) const noexcept
 // ------------------------------
 // Methods
 // ------------------------------
+/**
+ * @brief Converts an HTTP method enum to its string representation.
+ * @param m The HTTP method.
+ * @return A string view of the method.
+ */
 std::string_view to_string(Method m) {
     switch (m) {
         case Method::GET:      return "GET";
@@ -62,6 +78,11 @@ static inline bool ieq(std::string_view a, std::string_view b) {
     return true;
 }
 
+/**
+ * @brief Converts a string to an HTTP method enum.
+ * @param s The string representation of the method.
+ * @return The corresponding Method enum value.
+ */
 Method method_from_string(std::string_view s) {
     if (ieq(s, "GET"))      return Method::GET;
     if (ieq(s, "POST"))     return Method::POST;
@@ -78,6 +99,11 @@ Method method_from_string(std::string_view s) {
 // ------------------------------
 // Status → reason phrase
 // ------------------------------
+/**
+ * @brief Gets the reason phrase for an HTTP status code.
+ * @param s The HTTP status code.
+ * @return A string view of the reason phrase.
+ */
 std::string_view reason(Status s) {
     switch (s) {
         // 1xx
@@ -130,6 +156,11 @@ std::string_view reason(Status s) {
 // ------------------------------
 static constexpr std::string_view kDefaultMime = "application/octet-stream";
 
+/**
+ * @brief Gets the MIME type for a file extension.
+ * @param ext The file extension.
+ * @return A string view of the MIME type.
+ */
 std::string_view mime_from_ext(std::string_view ext) {
     // expect ext with dot, e.g. ".html"
     // small table; extend as needed
@@ -167,6 +198,11 @@ std::string_view mime_from_ext(std::string_view ext) {
     return kDefaultMime;
 }
 
+/**
+ * @brief Gets the Content-Type for a file path.
+ * @param path The file path.
+ * @return A string view of the Content-Type.
+ */
 std::string_view content_type_for_path(std::string_view path) {
     auto dot   = path.rfind('.');
     auto slash = path.rfind('/');

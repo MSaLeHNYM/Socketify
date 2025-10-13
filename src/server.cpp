@@ -54,7 +54,10 @@ static inline bool iequal_ascii_sv(std::string_view a, std::string_view b) {
     return true;
 }
 
-// RFC 7231 date
+/**
+ * @brief Generates a date header string in RFC 7231 format.
+ * @return The date header string.
+ */
 std::string Server::make_date_header_() {
     auto now = system_clock::now();
     auto t = system_clock::to_time_t(now);
@@ -72,9 +75,16 @@ std::string Server::make_date_header_() {
 // ---------------------------
 // ctor/dtor
 // ---------------------------
+/**
+ * @brief Constructs a new Server instance.
+ * @param opts The server options.
+ */
 Server::Server(ServerOptions opts)
     : opts_(std::move(opts)) {}
 
+/**
+ * @brief Destroys the Server instance and stops the server if it is running.
+ */
 Server::~Server() {
     Stop();
 }
@@ -82,6 +92,13 @@ Server::~Server() {
 // ---------------------------
 // routing glue
 // ---------------------------
+/**
+ * @brief Adds a new route to the server.
+ * @param m The HTTP method for the route.
+ * @param path The URL path for the route.
+ * @param h The handler function for the route.
+ * @return A reference to the newly created Route.
+ */
 Route& Server::AddRoute(Method m, std::string_view path, Handler h) {
     return router_.AddRoute(m, path, std::move(h));
 }
@@ -89,6 +106,12 @@ Route& Server::AddRoute(Method m, std::string_view path, Handler h) {
 // ---------------------------
 // run/stop
 // ---------------------------
+/**
+ * @brief Starts the server and begins listening for connections.
+ * @param ip The IP address to bind to.
+ * @param port The port to listen on.
+ * @return true if the server started successfully, false otherwise.
+ */
 bool Server::Run(std::string_view ip, uint16_t port) {
     if (running_.exchange(true)) return false;
 
@@ -128,6 +151,9 @@ bool Server::Run(std::string_view ip, uint16_t port) {
     return true;
 }
 
+/**
+ * @brief Stops the server.
+ */
 void Server::Stop() {
     if (!running_.exchange(false)) return;
 
@@ -273,6 +299,13 @@ void Server::handle_connection_(int client_fd) {
 // ---------------------------
 // serialization
 // ---------------------------
+/**
+ * @brief Serializes a response into a string.
+ * @param req The request object.
+ * @param res The response object.
+ * @param opts The server options.
+ * @return The serialized response string.
+ */
 std::string Server::serialize_response_(const Request& req, const Response& res, const ServerOptions& opts) {
     // Working body (may be empty for HEAD)
     std::string body = res.body_string();
@@ -408,6 +441,12 @@ std::string Server::serialize_response_(const Request& req, const Response& res,
 // ---------------------------
 // keep-alive
 // ---------------------------
+/**
+ * @brief Determines if the connection should be closed after the response.
+ * @param req The request object.
+ * @param res The response object.
+ * @return true if the connection should be closed, false otherwise.
+ */
 bool Server::should_close_(const Request& req, const Response& res) {
     auto find_header = [](const HeaderMap &h, std::string_view key) -> std::string_view {
         auto it = h.find(std::string(key));

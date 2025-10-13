@@ -12,6 +12,12 @@ static inline char ascii_lower(char c) {
 }
 static std::string to_lower(std::string s) { for (auto& c : s) c = ascii_lower(c); return s; }
 
+/**
+ * @brief Checks if a content type is compressible.
+ * @param ct The content type.
+ * @param opts The compression options.
+ * @return true if the content type is compressible, false otherwise.
+ */
 bool is_compressible_type(std::string_view ct, const Options& opts) {
     if (ct.empty()) return true; // if unknown, allow
     // quick filters for common non-compressible types
@@ -28,6 +34,12 @@ bool is_compressible_type(std::string_view ct, const Options& opts) {
     return false;
 }
 
+/**
+ * @brief Negotiates the best encoding based on the Accept-Encoding header.
+ * @param accept_enc The value of the Accept-Encoding header.
+ * @param opts The compression options.
+ * @return The negotiated encoding.
+ */
 Encoding negotiate_accept_encoding(std::string_view accept_enc, const Options& opts) {
     if (!opts.enable) return Encoding::None;
     if (accept_enc.empty()) return Encoding::None;
@@ -49,7 +61,13 @@ Encoding negotiate_accept_encoding(std::string_view accept_enc, const Options& o
 }
 
 // ---- zlib helpers ----
-// gzip: use deflate with gzip wrapper (windowBits = 15 + 16)
+/**
+ * @brief Compresses data using gzip.
+ * @param src The source data.
+ * @param out The output string.
+ * @param level The compression level.
+ * @return true on success, false otherwise.
+ */
 bool gzip_compress(std::string_view src, std::string& out, int level) {
     z_stream zs{};
     int wb = 15 + 16; // gzip wrapper
@@ -81,7 +99,13 @@ bool gzip_compress(std::string_view src, std::string& out, int level) {
     return true;
 }
 
-// deflate: raw zlib stream (RFC 1950 / 1951). Browsers accept "deflate" as zlib stream commonly.
+/**
+ * @brief Compresses data using deflate.
+ * @param src The source data.
+ * @param out The output string.
+ * @param level The compression level.
+ * @return true on success, false otherwise.
+ */
 bool deflate_compress(std::string_view src, std::string& out, int level) {
     z_stream zs{};
     int wb = 15; // zlib wrapper

@@ -27,22 +27,48 @@ namespace socketify {
 // ---------------------------
 // Options
 // ---------------------------
+/**
+ * @brief Holds configuration options for the Server.
+ */
 struct ServerOptions {
-    // timeouts (milliseconds)
+    /**
+     * @brief Timeout for reading request headers (in milliseconds).
+     */
     std::chrono::milliseconds header_timeout{15000};
+    /**
+     * @brief Timeout for reading the request body (in milliseconds).
+     */
     std::chrono::milliseconds body_timeout{30000};
+    /**
+     * @brief Timeout for idle connections (in milliseconds).
+     */
     std::chrono::milliseconds idle_timeout{60000};
 
-    // socket options
+    /**
+     * @brief The maximum length of the pending connections queue.
+     */
     int backlog{128};
+    /**
+     * @brief Whether to allow multiple sockets to bind to the same port.
+     */
     bool reuse_port{false};
+    /**
+     * @brief Whether to allow the socket to be reused immediately after it is closed.
+     */
     bool reuse_addr{true};
 
-    // worker/acceptor
-    unsigned workers{0};   // 0 -> hardware_concurrency
+    /**
+     * @brief The number of worker threads to spawn. If 0, it defaults to the number of hardware threads.
+     */
+    unsigned workers{0};
+    /**
+     * @brief The number of acceptor threads to spawn.
+     */
     unsigned acceptors{1};
 
-    // compression
+    /**
+     * @brief Compression options.
+     */
     compression::Options compression{};
 
     // future TLS options could go here (cert_dir, etc.)
@@ -51,21 +77,59 @@ struct ServerOptions {
 // ---------------------------
 // Server
 // ---------------------------
+/**
+ * @brief The main HTTP server class.
+ *
+ * This class is responsible for managing the server lifecycle, including
+ * starting and stopping the server, managing routes, and handling incoming
+ * connections.
+ */
 class Server {
 public:
+    /**
+     * @brief Constructs a new Server instance.
+     * @param opts The server options.
+     */
     explicit Server(ServerOptions opts = {});
+    /**
+     * @brief Destroys the Server instance and stops the server if it is running.
+     */
     ~Server();
 
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
 
-    // Routing
+    /**
+     * @brief Adds a new route to the server.
+     * @param m The HTTP method for the route.
+     * @param path The URL path for the route.
+     * @param h The handler function for the route.
+     * @return A reference to the newly created Route.
+     */
     Route& AddRoute(Method m, std::string_view path, Handler h);
+    /**
+     * @brief Creates a new route group.
+     * @param prefix The common prefix for all routes in the group.
+     * @return A RouteGroup object.
+     */
     Router::RouteGroup Group(std::string_view prefix) { return router_.Group(prefix); }
+    /**
+     * @brief Adds a middleware to the server.
+     * @param mw The middleware to add.
+     * @return A reference to the Server instance.
+     */
     Server& Use(Middleware mw) { router_.Use(std::move(mw)); return *this; }
 
-    // Start/Stop
+    /**
+     * @brief Starts the server and begins listening for connections.
+     * @param ip The IP address to bind to.
+     * @param port The port to listen on.
+     * @return true if the server started successfully, false otherwise.
+     */
     bool Run(std::string_view ip, uint16_t port);
+    /**
+     * @brief Stops the server.
+     */
     void Stop();
 
 private:
