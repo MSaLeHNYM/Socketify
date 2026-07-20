@@ -30,18 +30,26 @@ if [ -z "${NAME}" ]; then
   exit 1
 fi
 
+# Ripple ships its own runner (npm build + stage web/ + server).
+if [ "${NAME}" = "ripple" ]; then
+  RIPPLE_RUN="${ROOT}/examples/ripple/run.sh"
+  if [ ! -x "${RIPPLE_RUN}" ]; then
+    echo "error: ${RIPPLE_RUN} missing — init the submodule:" >&2
+    echo "  git submodule update --init --recursive" >&2
+    exit 1
+  fi
+  exec "${RIPPLE_RUN}" --socketify-root "${ROOT}" --build-dir "${BUILD_DIR}"
+fi
+
 cmake -S "${ROOT}" -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DSOCKETIFY_BUILD_EXAMPLES=ON >/dev/null
 cmake --build "${BUILD_DIR}" -j"$(nproc)" --target "example_${NAME}"
 
 BIN_DIR="${BUILD_DIR}/examples/${NAME}"
-# Ripple (and similar) may rename the binary via OUTPUT_NAME.
 BIN="${BIN_DIR}/example_${NAME}"
 if [ ! -x "${BIN}" ] && [ -x "${BIN_DIR}/${NAME}" ]; then
   BIN="${BIN_DIR}/${NAME}"
-elif [ ! -x "${BIN}" ] && [ -x "${BIN_DIR}/ripple" ]; then
-  BIN="${BIN_DIR}/ripple"
 fi
 echo "running ${BIN} (Ctrl-C to stop)"
 cd "${BIN_DIR}" && "${BIN}"
