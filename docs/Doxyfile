@@ -13,14 +13,16 @@ ALLOW_UNICODE_NAMES    = YES
 OUTPUT_LANGUAGE        = English
 
 # --- Input -----------------------------------------------------------------
-# API.md uses GitHub-flavored anchors, so it is linked from README rather
-# than processed by Doxygen.
+# Dedicated main page (README is for GitHub — its asset paths break in HTML).
 INPUT                  = include/socketify \
-                         README.md
+                         docs/mainpage.md
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */detail/*
-USE_MDFILE_AS_MAINPAGE = README.md
+USE_MDFILE_AS_MAINPAGE = docs/mainpage.md
+IMAGE_PATH             = assets
+PROJECT_LOGO           = assets/logo.png
+HTML_EXTRA_FILES       = assets/logo.png
 
 # --- Extraction ------------------------------------------------------------
 EXTRACT_ALL            = YES
