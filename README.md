@@ -156,6 +156,7 @@ Convenience scripts:
 | `scripts/build_debug.sh` | Debug + ASan/UBSan + tests |
 | `scripts/run_tests.sh` | Build (if needed) and run CTest |
 | `scripts/run_examples.sh [01-07]` | Build & run one graded example |
+| `scripts/serve_docs.sh [port]` | Generate Doxygen docs, serve on localhost, open browser |
 
 ## Using it in your project
 
@@ -196,8 +197,17 @@ AddressSanitizer/UBSan in the debug build:
 ## Documentation
 
 - Hand-written guide: <a href="docs/API.md">docs/API.md</a>
-- API reference: `doxygen docs/Doxyfile` → `docs/generated/html/index.html`
-  (or `cmake --build build --target docs` with `-DSOCKETIFY_BUILD_DOCS=ON`)
+- API reference (auto-generate + open in browser):
+
+```bash
+./scripts/serve_docs.sh          # http://127.0.0.1:8765/
+./scripts/serve_docs.sh 9000     # custom port
+./scripts/serve_docs.sh --regen-only   # generate only, don't serve
+```
+
+Requires `doxygen` on `PATH` (or under `.deps/sysroot/usr/bin/doxygen`).
+You can also run `doxygen docs/Doxyfile` manually, or
+`cmake --build build --target docs` with `-DSOCKETIFY_BUILD_DOCS=ON`.
 
 ## Benchmarks
 
@@ -227,7 +237,7 @@ Socketify is released under a **source-available** license (see [LICENSE](LICENS
 
 **Want to contribute a patch?** Ask first — email
 [saleh.ue4@gmail.com](mailto:saleh.ue4@gmail.com) or Telegram
-[@MSaLeHNYM](https://t.me/MSaLeHNYM) for permission. Approved
+[t.me/MSaLeHNYM](https://t.me/MSaLeHNYM) for permission. Approved
 contributions are assigned to the copyright holder so ownership stays unified.
 
 All copyright and legal ownership of this software belong exclusively to
