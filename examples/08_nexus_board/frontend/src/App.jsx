@@ -218,19 +218,16 @@ function ProjectBoard() {
 
   useEffect(() => {
     load().catch(console.error);
+  }, [id, q]);
+
+  // Keep one SSE connection per project — do not reconnect on search/selection.
+  useEffect(() => {
     const es = new EventSource("/api/events", { withCredentials: true });
     const onTask = () => load().catch(() => {});
     es.addEventListener("task", onTask);
-    es.addEventListener("comment", async (ev) => {
-      const data = JSON.parse(ev.data);
-      if (selected && data.comment?.task_id === selected.id) {
-        const c = await api.comments(selected.id);
-        setComments(c.comments);
-      }
-      onTask();
-    });
+    es.addEventListener("comment", onTask);
     return () => es.close();
-  }, [id, q, selected?.id]);
+  }, [id]);
 
   const columns = ["todo", "doing", "done"];
 

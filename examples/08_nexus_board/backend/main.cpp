@@ -103,8 +103,11 @@ int main() {
 
     sessions::Options so;
     so.secret = "nexus-board-demo-secret-change-in-production!!";
+    so.strategy = sessions::Strategy::ServerStore; // or SignedCookie / JWT
     so.cookie_name = "nexus_sid";
     so.ttl = std::chrono::hours(24 * 14);
+    so.rolling = true;              // extend store TTL + cookie on every hit
+    so.save_uninitialized = false;  // no empty sid cookies on static assets
     so.cookie_http_only = true;
     so.same_site = SameSite::Lax;
     so.cookie_path = "/";
@@ -136,6 +139,7 @@ int main() {
             return;
         }
         auto sess = sessions::get(req);
+        sess->regenerate(); // new sid on login — blocks session fixation
         sess->set("user_id", (*user)["id"]);
         res.status(Status::Created).json(json{{"user", *user}});
     }).Use(auth_limit);
@@ -152,6 +156,7 @@ int main() {
             return;
         }
         auto sess = sessions::get(req);
+        sess->regenerate();
         sess->set("user_id", (*user)["id"]);
         res.set_cookie(Cookie("nexus_theme", "dark").path("/").max_age(60 * 60 * 24 * 365));
         res.json(json{{"user", *user}});
@@ -159,13 +164,14 @@ int main() {
 
     auth.Post("/logout", [&](Request& req, Response& res) {
         if (auto sess = sessions::get(req)) sess->destroy();
-        res.clear_cookie("nexus_sid");
         res.json(json{{"ok", true}});
     });
 
     auth.Get("/me", [&](Request& req, Response& res) {
         auto id = uid(req);
         if (!id) {
+            // 401 only when truly unauthenticated — clients must not treat
+            // transient network errors the same way.
             res.status(Status::Unauthorized).json(json{{"user", nullptr}});
             return;
         }

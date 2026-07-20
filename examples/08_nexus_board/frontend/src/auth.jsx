@@ -11,8 +11,11 @@ export function AuthProvider({ children }) {
     try {
       const data = await api.me();
       setUser(data.user);
-    } catch {
-      setUser(null);
+    } catch (err) {
+      // Only clear the session on a real auth failure. Network blips, 429s,
+      // and 5xx must not boot the user to the login screen.
+      if (err?.status === 401) setUser(null);
+      else if (loading) setUser(null);
     } finally {
       setLoading(false);
     }
@@ -38,7 +41,11 @@ export function AuthProvider({ children }) {
       return data.user;
     },
     async logout() {
-      await api.logout();
+      try {
+        await api.logout();
+      } catch {
+        /* ignore */
+      }
       setUser(null);
     },
   };

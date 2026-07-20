@@ -210,26 +210,45 @@ logging::set_sink([](logging::Level, std::string_view line) {
 
 ## Sessions
 
-Signed session cookies (HMAC-SHA256) with server-side storage:
+Pluggable session manager. Pick a strategy:
+
+| `sessions::Strategy` | What it does |
+|----------------------|--------------|
+| `ServerStore` (default) | Signed `<id>.<hmac>` cookie + server `Store` (MemoryStore by default) |
+| `SignedCookie` | Entire session JSON sealed in a signed cookie (stateless) |
+| `JWT` | HS256 JWT via cookie and/or `Authorization: Bearer` |
 
 ```cpp
 sessions::Options so;
-so.secret = "long-random-secret";        // REQUIRED — sign/verify key
-so.cookie_name = "sid";                  // default
-so.ttl = std::chrono::hours(24);         // default
-// so.store = std::make_shared<MyRedisStore>();  // pluggable, default in-memory
+so.secret = "long-random-secret";          // REQUIRED — ≥ 32 random bytes
+so.strategy = sessions::Strategy::ServerStore;
+so.cookie_name = "sid";
+so.ttl = std::chrono::hours(24);
+so.rolling = true;                         // extend TTL on every request
+so.save_uninitialized = false;             // no empty sid on public pages
+// so.store = std::make_shared<MyRedisStore>();
+// so.strategy = sessions::Strategy::JWT;
+// so.jwt_transport = sessions::JwtTransport::Both;
 server.Use(sessions::middleware(so));
 
+server.Post("/login", [](Request& req, Response& res) {
+    auto sess = sessions::get(req);
+    sess->regenerate();                    // new id — blocks fixation
+    sess->set("user", "alice");
+    res.send("ok\n");
+});
+
 server.Get("/profile", [](Request& req, Response& res) {
-    auto sess = sessions::get(req);      // never null below the middleware
+    auto sess = sessions::get(req);
     int visits = sess->has("visits") ? sess->get("visits").get<int>() : 0;
-    sess->set("visits", visits + 1);     // persisted automatically
+    sess->set("visits", visits + 1);
     res.json({{"visits", visits + 1}});
 });
 ```
 
-`sess->destroy()` deletes the server-side entry and expires the cookie. A
-tampered or expired cookie yields a fresh session (`sess->is_new()`).
+`sess->destroy()` clears server data / expires the cookie / invalidates the JWT.
+`sess->touch()` forces a TTL refresh without changing data.
+Low-level JWT helpers: `sessions::jwt::encode` / `sessions::jwt::decode`.
 Custom stores implement `sessions::Store` (`load` / `save` / `destroy`).
 
 ## Static files

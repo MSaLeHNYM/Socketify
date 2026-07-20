@@ -8,7 +8,7 @@ Socketify feature, with a polished React (Vite) frontend and **SQLite** storage.
 | Area | What you get |
 |---|---|
 | Routing / groups | `/api/auth`, `/api/projects`, `/api/tasks`, … |
-| Sessions | Signed cookie `nexus_sid`, login state |
+| Sessions | Pluggable manager (`ServerStore` / `SignedCookie` / `JWT`), rolling TTL, `nexus_sid` |
 | Auth | Register / login / logout + `require_auth` middleware |
 | SQLite | Users, projects, tasks, comments (WAL mode) |
 | Body parsers | JSON APIs + **multipart** avatar upload |

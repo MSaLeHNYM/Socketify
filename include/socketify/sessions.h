@@ -1,27 +1,27 @@
 #pragma once
 /**
  * @file sessions.h
- * @brief Cookie-based sessions with HMAC-SHA256 signed session ids.
+ * @brief Fast, pluggable session manager.
  *
- * The session id cookie is signed (`<id>.<base64url hmac>`), so it cannot
- * be forged without the secret. Session data lives server-side in a Store
- * (in-memory by default; implement Store for Redis etc.).
+ * Pick a strategy via Options::strategy:
+ *
+ *  - **ServerStore** (default): HMAC-signed session-id cookie + server Store
+ *    (MemoryStore by default; plug in Redis/etc.).
+ *  - **SignedCookie**: entire session JSON sealed in a signed cookie (stateless).
+ *  - **JWT**: HS256 JWT carried in a cookie and/or `Authorization: Bearer`.
  *
  * @code
  * sessions::Options so;
  * so.secret = "change-me-please-32-bytes-min";
+ * so.strategy = sessions::Strategy::ServerStore; // or SignedCookie / JWT
+ * so.rolling = true;                            // extend TTL on each request
  * server.Use(sessions::middleware(so));
  *
  * server.Post("/login", [](Request& req, Response& res) {
  *     auto sess = sessions::get(req);
+ *     sess->regenerate();          // session-fixation protection
  *     sess->set("user", "alice");
- *     res.send("logged in\n");
- * });
- *
- * server.Get("/me", [](Request& req, Response& res) {
- *     auto sess = sessions::get(req);
- *     if (!sess->has("user")) { res.status(Status::Unauthorized).send("who?\n"); return; }
- *     res.json({{"user", sess->get("user")}});
+ *     res.send("ok\n");
  * });
  * @endcode
  */
@@ -32,67 +32,88 @@
 #include <nlohmann/json.hpp>
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace socketify::sessions {
 
+/** @brief How session state is carried and verified. */
+enum class Strategy : std::uint8_t {
+    /** Signed `<id>.<hmac>` cookie; data lives in Store. */
+    ServerStore = 0,
+    /** Signed cookie containing the JSON payload (no server store). */
+    SignedCookie = 1,
+    /** HS256 JWT in cookie and/or Authorization Bearer header. */
+    JWT = 2,
+};
+
+/** @brief Where to read/write JWTs when Strategy::JWT is selected. */
+enum class JwtTransport : std::uint8_t {
+    Cookie = 0,   ///< Cookie only
+    Bearer = 1,   ///< Authorization: Bearer only
+    Both = 2,     ///< Prefer Bearer, fall back to cookie; write both when saving
+};
+
 /**
- * @brief Per-request session object (attached to the Request by the
- *        middleware; retrieve it with sessions::get()).
+ * @brief Per-request session object (attached by the middleware;
+ *        retrieve with sessions::get()).
  */
 class Session {
 public:
-    /** @brief Construct (middleware-internal). */
     Session(std::string id, nlohmann::json data, bool is_new)
         : id_(std::move(id)), data_(std::move(data)), new_(is_new) {
         if (!data_.is_object()) data_ = nlohmann::json::object();
     }
 
-    /** @brief Session id (unsigned part of the cookie). */
     const std::string& id() const noexcept { return id_; }
-    /** @brief True when the session was created for this request. */
     bool is_new() const noexcept { return new_; }
 
-    /** @brief True when @p key exists. */
     bool has(const std::string& key) const { return data_.contains(key); }
 
-    /** @brief Value at @p key (null json when absent). */
     nlohmann::json get(const std::string& key) const {
         auto it = data_.find(key);
         return it == data_.end() ? nlohmann::json{} : *it;
     }
 
-    /** @brief Set @p key to @p value (marks the session dirty). */
     void set(const std::string& key, nlohmann::json value) {
         data_[key] = std::move(value);
         dirty_ = true;
     }
 
-    /** @brief Remove @p key. */
     void erase(const std::string& key) {
         if (data_.erase(key) > 0) dirty_ = true;
     }
 
-    /** @brief Remove all keys. */
     void clear() {
         if (!data_.empty()) dirty_ = true;
         data_ = nlohmann::json::object();
     }
 
-    /** @brief Destroy the session: server data is deleted and the cookie
-     *         expired when the response is sent. */
+    /** @brief Destroy: wipe server data / expire cookie / invalidate JWT. */
     void destroy() noexcept { destroyed_ = true; }
 
-    /** @brief Raw data object. */
+    /**
+     * @brief Issue a fresh session id (ServerStore) or force re-seal.
+     *        Call on login to prevent session fixation.
+     */
+    void regenerate();
+
+    /** @brief Mark the session so TTL/cookie is refreshed even if data unchanged. */
+    void touch() noexcept { touched_ = true; }
+
     const nlohmann::json& data() const noexcept { return data_; }
 
     /// @cond INTERNAL
     bool dirty() const noexcept { return dirty_; }
+    bool touched() const noexcept { return touched_; }
     bool destroyed() const noexcept { return destroyed_; }
+    bool regenerated() const noexcept { return regenerated_; }
+    void set_id_(std::string id) { id_ = std::move(id); }
     /// @endcond
 
 private:
@@ -100,34 +121,34 @@ private:
     nlohmann::json data_;
     bool new_{false};
     bool dirty_{false};
+    bool touched_{false};
     bool destroyed_{false};
+    bool regenerated_{false};
 };
 
 /**
- * @brief Server-side session storage interface.
- *
- * Implementations must be thread-safe; the middleware calls these from
- * multiple worker threads.
+ * @brief Server-side session storage interface (Strategy::ServerStore).
+ *        Implementations must be thread-safe.
  */
 class Store {
 public:
     virtual ~Store() = default;
-    /** @brief Load session data; std::nullopt when missing/expired. */
     virtual std::optional<nlohmann::json> load(const std::string& id) = 0;
-    /** @brief Persist @p data under @p id for @p ttl. */
     virtual void save(const std::string& id, const nlohmann::json& data,
                       std::chrono::seconds ttl) = 0;
-    /** @brief Delete the session. */
     virtual void destroy(const std::string& id) = 0;
 };
 
-/** @brief Built-in thread-safe in-memory store with TTL expiry. */
+/** @brief Thread-safe in-memory store with TTL expiry. */
 class MemoryStore : public Store {
 public:
     std::optional<nlohmann::json> load(const std::string& id) override;
     void save(const std::string& id, const nlohmann::json& data,
               std::chrono::seconds ttl) override;
     void destroy(const std::string& id) override;
+
+    /** @brief Number of live (non-expired) entries — useful for tests. */
+    std::size_t size();
 
 private:
     struct Entry {
@@ -139,24 +160,60 @@ private:
     void prune_locked_();
 };
 
+/** @brief Low-level HS256 JWT helpers (also used by Strategy::JWT). */
+namespace jwt {
+/** @brief Encode @p claims as an HS256 JWT. Adds iat/exp when missing. */
+std::string encode(std::string_view secret, nlohmann::json claims,
+                   std::chrono::seconds ttl = std::chrono::hours(24));
+
+/** @brief Verify and decode; nullopt on bad signature / expiry / parse error. */
+std::optional<nlohmann::json> decode(std::string_view secret, std::string_view token);
+} // namespace jwt
+
 /** @brief Session middleware configuration. */
 struct Options {
-    /** @brief HMAC secret. REQUIRED; use >= 32 random bytes in production. */
+    /** @brief HMAC / JWT secret. REQUIRED; use ≥ 32 random bytes in production. */
     std::string secret;
+
+    /** @brief Persistence / transport strategy (default ServerStore). */
+    Strategy strategy{Strategy::ServerStore};
+
     /** @brief Cookie name (default "sid"). */
     std::string cookie_name{"sid"};
-    /** @brief Session lifetime; also used as cookie Max-Age. */
+
+    /** @brief Lifetime for store TTL, cookie Max-Age, and JWT exp. */
     std::chrono::seconds ttl{std::chrono::hours(24)};
-    /** @brief Storage backend; defaults to a shared MemoryStore. */
+
+    /**
+     * @brief When true (default), each request that loads an existing session
+     *        extends server TTL and refreshes the cookie/JWT expiry.
+     */
+    bool rolling{true};
+
+    /**
+     * @brief When false (default), empty brand-new sessions do not set a cookie.
+     *        Set true only if you need a sid before any data is written.
+     */
+    bool save_uninitialized{false};
+
+    /** @brief Storage backend for ServerStore; defaults to a shared MemoryStore. */
     std::shared_ptr<Store> store{};
-    /** @brief Set the Secure cookie attribute (enable behind HTTPS). */
+
+    /** @brief Secure cookie attribute (enable behind HTTPS). */
     bool cookie_secure{false};
-    /** @brief Set the HttpOnly attribute (default on). */
+    /** @brief HttpOnly attribute (default on). */
     bool cookie_http_only{true};
     /** @brief SameSite attribute (default Lax). */
     SameSite same_site{SameSite::Lax};
     /** @brief Cookie Path attribute. */
     std::string cookie_path{"/"};
+
+    // ---- JWT-specific ----
+    JwtTransport jwt_transport{JwtTransport::Both};
+    /** @brief Optional JWT iss claim. */
+    std::string jwt_issuer{};
+    /** @brief Claim name that holds session key/values (default "data"). */
+    std::string jwt_data_claim{"data"};
 };
 
 /**

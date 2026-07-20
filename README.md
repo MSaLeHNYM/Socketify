@@ -68,8 +68,8 @@ int main() {
 - **Middleware built-ins** — request logging, request IDs, CORS,
   token-bucket rate limiting (`RateLimit-*` headers), gzip/deflate
   compression, body-size limits
-- **Sessions** — HMAC-SHA256 signed cookies, in-memory TTL store,
-  pluggable `Store` interface
+- **Sessions** — pluggable manager: server store, signed cookie, or JWT
+  (cookie / Bearer); rolling TTL, `regenerate()`, default MemoryStore
 - **Server-Sent Events** — `sse::upgrade()` with a thread-safe session
   handle for pushing events from any thread
 - **Performance architecture** — one epoll loop per worker thread,
