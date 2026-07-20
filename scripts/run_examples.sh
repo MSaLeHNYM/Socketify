@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the examples and run one of them.
 #
-# Usage: ./scripts/run_examples.sh [01|02|03|04|05|06|07|08|09]
+# Usage: ./scripts/run_examples.sh [01|02|03|04|05|06|07|08|09|10]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +18,7 @@ declare -A EXAMPLES=(
   [07]=07_fullstack
   [08]=08_nexus_board
   [09]=09_orm_demo
+  [10]=10_pulse_chat
 )
 
 PICK="${1:-01}"

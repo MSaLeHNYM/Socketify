@@ -25,10 +25,12 @@ add_executable(socketify_tests
     unit/ratelimit_tests.cpp
     unit/sessions_tests.cpp
     unit/db_tests.cpp
+    unit/pulse_frame_tests.cpp
     unit/static_files_tests.cpp
     unit/response_tests.cpp
     integration/server_integration_tests.cpp
     integration/sse_integration_tests.cpp
+    integration/pulse_integration_tests.cpp
     integration/tls_integration_tests.cpp
 )
 

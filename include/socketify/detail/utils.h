@@ -139,11 +139,17 @@ std::string random_token(std::size_t bytes = 16);
 /** @brief SHA-256 digest (32 bytes) of @p data. Self-contained implementation. */
 std::array<std::uint8_t, 32> sha256(std::string_view data);
 
+/** @brief SHA-1 digest (20 bytes) of @p data. Self-contained (Pulse handshake). */
+std::array<std::uint8_t, 20> sha1(std::string_view data);
+
 /** @brief HMAC-SHA256 of @p data keyed with @p key. */
 std::array<std::uint8_t, 32> hmac_sha256(std::string_view key, std::string_view data);
 
 /** @brief Constant-time equality check for fixed-size digests / tokens. */
 bool constant_time_equal(std::string_view a, std::string_view b) noexcept;
+
+/** @brief Standard Base64 encode (RFC 4648 §4, with padding). */
+std::string base64_encode(const unsigned char* data, std::size_t len);
 
 /** @brief URL-safe base64 encode (no padding). */
 std::string base64url_encode(const unsigned char* data, std::size_t len);

@@ -105,6 +105,7 @@ set(SOCKETIFY_PUBLIC_HEADERS
     include/socketify/logging.h
     include/socketify/tls.h
     include/socketify/sse.h
+    include/socketify/pulse.h
     include/socketify/db.h
     include/socketify/db/error.h
     include/socketify/db/schema.h
@@ -125,6 +126,7 @@ set(SOCKETIFY_PUBLIC_HEADERS
     include/socketify/detail/file_io.h
     include/socketify/detail/utils.h
     include/socketify/detail/sse_impl.h
+    include/socketify/detail/pulse_impl.h
 )
 
 set(SOCKETIFY_SOURCES
@@ -144,6 +146,7 @@ set(SOCKETIFY_SOURCES
     src/logging.cpp
     src/tls.cpp
     src/sse.cpp
+    src/pulse.cpp
     src/db/schema.cpp
     src/db/database.cpp
     src/db/query.cpp

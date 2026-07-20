@@ -356,6 +356,46 @@ session.close();
 disconnected, which is the natural point to drop the handle. See
 `examples/05_sse_chat` and `examples/07_fullstack` for broadcast hubs.
 
+## Pulse (realtime channels)
+
+Bidirectional channels branded **Pulse** — *keep the connection pulsing*.
+Wire protocol is RFC 6455 WebSocket, so `new WebSocket("ws://…")`, `wscat`,
+and bots work unchanged. TLS upgrades become `wss://` with no extra API.
+
+```cpp
+#include <socketify/pulse.h>
+
+pulse::Hub hub;
+
+server.Get("/chat", [&](Request& req, Response& res) {
+    auto ch = pulse::upgrade(req, res);   // 101 + Channel handle
+    if (!ch.valid()) return;              // bad handshake → 4xx already set
+
+    hub.join("lobby", ch);
+    ch.on_text([&](pulse::Channel&, std::string_view msg) {
+        hub.to("lobby").broadcast_text(msg);
+    });
+    ch.on_close([&](pulse::Channel& c, pulse::CloseCode, std::string_view) {
+        hub.leave_all(c);
+    });
+    ch.send_text(R"({"type":"welcome"})");
+});
+```
+
+| Piece | Role |
+|---|---|
+| `pulse::upgrade(req, res, opts)` | Validate handshake; set 101 + `Sec-WebSocket-Accept`; return `Channel` |
+| `Channel` | Thread-safe: `send_text` / `send_binary` / `ping` / `close`; `on_text` / `on_binary` / `on_close` |
+| `pulse::Hub` | Rooms + broadcast (`join` / `leave` / `to(room).broadcast_text`) |
+| `pulse::Options` | `subprotocols`, `max_message_bytes`, `auto_pong` (default `true`) |
+
+Callbacks run on the connection’s worker event-loop thread. Cross-thread
+`send_*` is safe (same notify pattern as SSE). Fragmented client messages are
+reassembled; oversized payloads are rejected per `max_message_bytes`.
+permessage-deflate is not enabled in this release.
+
+See `examples/10_pulse_chat` for a browser lobby demo.
+
 ## HTTPS / TLS
 
 ```cpp

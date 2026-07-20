@@ -1,0 +1,3 @@
+add_executable(example_10_pulse_chat main.cpp)
+target_link_libraries(example_10_pulse_chat PRIVATE Socketify::socketify)
+socketify_set_warnings(example_10_pulse_chat)

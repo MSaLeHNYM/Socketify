@@ -15,15 +15,15 @@
   <img alt="Linux" src="https://img.shields.io/badge/OS-Linux-FCC624?style=flat-square&logo=linux&logoColor=black">
   <img alt="epoll" src="https://img.shields.io/badge/I%2FO-epoll%20%2B%20SO__REUSEPORT-0D9488?style=flat-square">
   <img alt="TLS" src="https://img.shields.io/badge/TLS-OpenSSL-721412?style=flat-square&logo=openssl&logoColor=white">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-152%20passing-22C55E?style=flat-square">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-177%20passing-22C55E?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-Source--Available-orange?style=flat-square">
   <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square">
 </p>
 
 <p align="center">
   <code>http</code> · <code>https</code> · <code>rest-api</code> · <code>middleware</code> · <code>sse</code> ·
-  <code>sessions</code> · <code>cors</code> · <code>rate-limit</code> · <code>gzip</code> ·
-  <code>static-files</code> · <code>sendfile</code> · <code>json</code> · <code>multipart</code> ·
+  <code>pulse</code> · <code>websocket</code> · <code>sessions</code> · <code>cors</code> · <code>rate-limit</code> ·
+  <code>gzip</code> · <code>static-files</code> · <code>sendfile</code> · <code>json</code> · <code>multipart</code> ·
   <code>cookies</code> · <code>high-performance</code> · <code>zero-copy</code> ·
   <code>web-framework</code> · <code>backend</code> · <code>cpp20</code> · <code>cmake</code>
 </p>
@@ -75,6 +75,9 @@ int main() {
   validations, hooks, relations, pools, transactions
 - **Server-Sent Events** — `sse::upgrade()` with a thread-safe session
   handle for pushing events from any thread
+- **Pulse** — bidirectional realtime channels (`pulse::upgrade` / `Channel` /
+  `Hub`); RFC 6455 WebSocket under the hood so browsers and `wscat` work
+  unchanged (`ws://` / `wss://`)
 - **Performance architecture** — one epoll loop per worker thread,
   `SO_REUSEPORT` listeners (no accept contention), non-blocking sockets,
   buffered writes, timer-based connection expiry
@@ -250,14 +253,16 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 | [`07_fullstack`](examples/07_fullstack) | everything combined: frontend + API + sessions + SSE |
 | [`08_nexus_board`](examples/08_nexus_board) | **React + SQLite app**: auth, projects, kanban, uploads, live SSE |
 | [`09_orm_demo`](examples/09_orm_demo) | `socketify::db` ORM: models, relations, migrations, Mongo documents |
+| [`10_pulse_chat`](examples/10_pulse_chat) | lobby chat over Pulse (browser `WebSocket` + `pulse::Hub`) |
 
 ```bash
 ./scripts/run_examples.sh 07   # build and run the fullstack guestbook
+./scripts/run_examples.sh 10   # Pulse lobby chat
 ```
 
 ## Tests
 
-152 unit and integration tests (GoogleTest), run under
+177 unit and integration tests (GoogleTest), run under
 AddressSanitizer/UBSan in the debug build:
 
 ```bash
@@ -280,7 +285,7 @@ Requires `doxygen` on `PATH` (or under `.deps/sysroot/usr/bin/doxygen`).
 
 ## Roadmap
 
-- WebSockets (frame parser, ping/pong, permessage-deflate)
+- Pulse permessage-deflate (optional compression extension)
 - HTTP/2 (ALPN, h2c)
 - Pluggable auth helpers (JWT, HMAC)
 - Redis-backed session/rate-limit stores

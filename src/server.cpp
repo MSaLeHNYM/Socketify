@@ -13,6 +13,7 @@
 #include "socketify/detail/loop.h"
 #include "socketify/detail/socket.h"
 #include "socketify/detail/sse_impl.h"
+#include "socketify/detail/pulse_impl.h"
 #include "socketify/detail/utils.h"
 
 #include <arpa/inet.h>
@@ -154,9 +155,16 @@ void serialize_response_(std::string& out,
         case Response::Kind::Stream:
             // Stream length is unknown; the connection closes at the end.
             break;
+        case Response::Kind::Pulse:
+            // Pulse (WebSocket) has no body after the 101 handshake.
+            break;
     }
 
-    out += close_connection ? "Connection: close\r\n" : "Connection: keep-alive\r\n";
+    if (res.kind() == Response::Kind::Pulse) {
+        out += "Connection: Upgrade\r\n";
+    } else {
+        out += close_connection ? "Connection: close\r\n" : "Connection: keep-alive\r\n";
+    }
     out += "\r\n";
 
     if (!head_request && !body.empty()) {
@@ -221,14 +229,15 @@ struct Connection {
     std::uint64_t file_off{0};
     std::uint64_t file_end{0};
 
-    // SSE adoption.
+    // SSE / Pulse adoption.
     std::shared_ptr<sse::Session::Impl> sse;
+    std::shared_ptr<pulse::Channel::Impl> pulse;
     std::shared_ptr<ConnToken> token;
 
     bool registered_write{false};
     steady_clock::time_point deadline{};
 
-    enum class Phase : std::uint8_t { Handshake, Http, Sse } phase{Phase::Http};
+    enum class Phase : std::uint8_t { Handshake, Http, Sse, Pulse } phase{Phase::Http};
 
     bool has_pending_output() const {
         return out_off < out.size() || (file.valid() && file_off < file_end);
@@ -264,6 +273,9 @@ private:
     void flush_sse_(Connection* c);
     void adopt_sse_(Connection* c, std::shared_ptr<sse::Session::Impl> impl);
     void release_sse_(Connection* c);
+    void flush_pulse_(Connection* c);
+    void adopt_pulse_(Connection* c, std::shared_ptr<pulse::Channel::Impl> impl);
+    void release_pulse_(Connection* c);
     void update_interest_(Connection* c);
     void set_deadline_(Connection* c);
     void sweep_deadlines_();
@@ -453,7 +465,8 @@ void Worker::on_readable_(Connection* c) {
         if (r == IoResult::WantRead || r == IoResult::WantWrite) break;
         // Closed or Error: if the peer half-closed while we still have
         // output pending, keep flushing; otherwise drop.
-        if (c->phase == Connection::Phase::Sse || !c->has_pending_output()) {
+        if (c->phase == Connection::Phase::Sse || c->phase == Connection::Phase::Pulse ||
+            !c->has_pending_output()) {
             close_conn_(c);
             return;
         }
@@ -467,6 +480,19 @@ void Worker::process_input_(Connection* c) {
     if (c->phase == Connection::Phase::Sse) {
         // Clients may send data on an SSE socket; we discard it.
         c->in.clear();
+        return;
+    }
+    if (c->phase == Connection::Phase::Pulse) {
+        if (!c->in.empty() && c->pulse) {
+            std::string chunk(c->in.data(), c->in.size());
+            c->in.clear();
+            if (!pulse::feed_bytes(c->pulse, chunk)) {
+                close_conn_(c);
+                return;
+            }
+            // Outbound pong/close may have been enqueued.
+            flush_pulse_(c);
+        }
         return;
     }
 
@@ -502,7 +528,9 @@ void Worker::process_input_(Connection* c) {
         c->sent_100 = false;
         c->in_request = false;
 
-        if (c->close_after || c->phase == Connection::Phase::Sse) break;
+        if (c->close_after || c->phase == Connection::Phase::Sse ||
+            c->phase == Connection::Phase::Pulse)
+            break;
         // Wait for the current response (esp. file streaming) to finish
         // before parsing the next pipelined request.
         if (c->file.valid() && c->file_off < c->file_end) break;
@@ -569,6 +597,14 @@ void Worker::handle_request_(Connection* c) {
         serialize_response_(c->out, req, res, srv_.opts_, c->head_request,
                             /*close_connection=*/true);
         adopt_sse_(c, std::static_pointer_cast<sse::Session::Impl>(res.stream_state()));
+        return;
+    }
+
+    // ---- Pulse (WebSocket) adoption ----
+    if (res.kind() == Response::Kind::Pulse) {
+        serialize_response_(c->out, req, res, srv_.opts_, c->head_request,
+                            /*close_connection=*/true);
+        adopt_pulse_(c, std::static_pointer_cast<pulse::Channel::Impl>(res.stream_state()));
         return;
     }
 
@@ -647,6 +683,10 @@ void Worker::flush_output_(Connection* c) {
     // 3) Response fully sent.
     if (c->phase == Connection::Phase::Sse) {
         flush_sse_(c);
+        return;
+    }
+    if (c->phase == Connection::Phase::Pulse) {
+        flush_pulse_(c);
         return;
     }
     if (c->close_after) {
@@ -735,6 +775,102 @@ void Worker::release_sse_(Connection* c) {
     c->sse->pending.clear();
 }
 
+void Worker::adopt_pulse_(Connection* c, std::shared_ptr<pulse::Channel::Impl> impl) {
+    c->phase = Connection::Phase::Pulse;
+    c->pulse = std::move(impl);
+    c->close_after = true;
+    c->token = std::make_shared<ConnToken>(ConnToken{this, c});
+    c->deadline = steady_clock::time_point::max();
+
+    std::weak_ptr<ConnToken> wt = c->token;
+    EventLoop* loop = &loop_;
+    {
+        std::lock_guard<std::mutex> lk(c->pulse->mu);
+        c->pulse->notify = [loop, wt]() {
+            loop->post([wt]() {
+                if (auto t = wt.lock()) {
+                    t->worker->flush_pulse_(t->conn);
+                }
+            });
+        };
+    }
+
+    // Frames coalesced with the HTTP upgrade request.
+    if (!c->in.empty()) {
+        std::string chunk(c->in.data(), c->in.size());
+        c->in.clear();
+        if (!pulse::feed_bytes(c->pulse, chunk)) {
+            // Defer close until after 101 is flushed.
+            c->pulse->close_requested = true;
+        }
+    }
+}
+
+void Worker::flush_pulse_(Connection* c) {
+    if (!c->pulse) return;
+
+    bool close_requested = false;
+    {
+        std::lock_guard<std::mutex> lk(c->pulse->mu);
+        if (!c->pulse->pending.empty()) {
+            if (c->out_off == c->out.size()) {
+                c->out.swap(c->pulse->pending);
+                c->out_off = 0;
+                c->pulse->pending.clear();
+            } else {
+                c->out.append(c->pulse->pending);
+                c->pulse->pending.clear();
+            }
+        }
+        close_requested = c->pulse->close_requested;
+    }
+
+    while (c->out_off < c->out.size()) {
+        std::size_t n = 0;
+        auto r = c->sock.write(c->out.data() + c->out_off, c->out.size() - c->out_off, n);
+        if (r == IoResult::Ok) {
+            c->out_off += n;
+            continue;
+        }
+        if (r == IoResult::WantWrite || r == IoResult::WantRead) {
+            update_interest_(c);
+            return;
+        }
+        close_conn_(c);
+        return;
+    }
+    c->out.clear();
+    c->out_off = 0;
+
+    if (close_requested) {
+        // Give the peer a moment to receive the close frame, then drop.
+        close_conn_(c);
+        return;
+    }
+    update_interest_(c);
+}
+
+void Worker::release_pulse_(Connection* c) {
+    if (!c->pulse) return;
+    pulse::CloseHandler on_close;
+    bool fire = false;
+    {
+        std::lock_guard<std::mutex> lk(c->pulse->mu);
+        c->pulse->closed = true;
+        c->pulse->notify = nullptr;
+        c->pulse->pending.clear();
+        if (!c->pulse->close_fired) {
+            c->pulse->close_fired = true;
+            fire = true;
+            on_close = c->pulse->on_close;
+        }
+    }
+    if (fire && on_close) {
+        pulse::Channel ch(c->pulse);
+        on_close(ch, pulse::CloseCode::Abnormal, {});
+    }
+}
+
 void Worker::update_interest_(Connection* c) {
     bool want_write = c->has_pending_output();
     if (want_write != c->registered_write) {
@@ -744,7 +880,7 @@ void Worker::update_interest_(Connection* c) {
 }
 
 void Worker::set_deadline_(Connection* c) {
-    if (c->phase == Connection::Phase::Sse) {
+    if (c->phase == Connection::Phase::Sse || c->phase == Connection::Phase::Pulse) {
         c->deadline = steady_clock::time_point::max();
         return;
     }
@@ -791,6 +927,7 @@ void Worker::sweep_deadlines_() {
 
 void Worker::close_conn_(Connection* c) {
     release_sse_(c);
+    release_pulse_(c);
     c->token.reset();
     if (c->sock.valid()) {
         loop_.del(c->sock.fd());

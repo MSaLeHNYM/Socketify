@@ -163,6 +163,102 @@ std::array<std::uint8_t, 32> hmac_sha256(std::string_view key, std::string_view 
     return sha256(outer);
 }
 
+// ---------------------------------------------------------------------------
+// SHA-1 (FIPS 180-4) — used by Pulse WebSocket Accept
+// ---------------------------------------------------------------------------
+
+namespace {
+
+inline std::uint32_t sha1_rotl(std::uint32_t x, unsigned n) {
+    return (x << n) | (x >> (32 - n));
+}
+
+struct Sha1Ctx {
+    std::uint32_t h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+    std::uint64_t total = 0;
+    unsigned char buf[64];
+    std::size_t buflen = 0;
+
+    void process(const unsigned char* p) {
+        std::uint32_t w[80];
+        for (int i = 0; i < 16; ++i)
+            w[i] = (std::uint32_t(p[4 * i]) << 24) | (std::uint32_t(p[4 * i + 1]) << 16) |
+                   (std::uint32_t(p[4 * i + 2]) << 8) | std::uint32_t(p[4 * i + 3]);
+        for (int i = 16; i < 80; ++i)
+            w[i] = sha1_rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+        std::uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
+        for (int i = 0; i < 80; ++i) {
+            std::uint32_t f, k;
+            if (i < 20) {
+                f = (b & c) | ((~b) & d);
+                k = 0x5A827999;
+            } else if (i < 40) {
+                f = b ^ c ^ d;
+                k = 0x6ED9EBA1;
+            } else if (i < 60) {
+                f = (b & c) | (b & d) | (c & d);
+                k = 0x8F1BBCDC;
+            } else {
+                f = b ^ c ^ d;
+                k = 0xCA62C1D6;
+            }
+            std::uint32_t t = sha1_rotl(a, 5) + f + e + k + w[i];
+            e = d;
+            d = c;
+            c = sha1_rotl(b, 30);
+            b = a;
+            a = t;
+        }
+        h[0] += a;
+        h[1] += b;
+        h[2] += c;
+        h[3] += d;
+        h[4] += e;
+    }
+
+    void update(const unsigned char* data, std::size_t len) {
+        total += len;
+        while (len > 0) {
+            std::size_t n = std::min(len, 64 - buflen);
+            std::memcpy(buf + buflen, data, n);
+            buflen += n;
+            data += n;
+            len -= n;
+            if (buflen == 64) {
+                process(buf);
+                buflen = 0;
+            }
+        }
+    }
+
+    std::array<std::uint8_t, 20> finish() {
+        std::uint64_t bits = total * 8;
+        unsigned char pad = 0x80;
+        update(&pad, 1);
+        unsigned char zero = 0;
+        while (buflen != 56) update(&zero, 1);
+        unsigned char lenbuf[8];
+        for (int i = 0; i < 8; ++i) lenbuf[i] = static_cast<unsigned char>(bits >> (56 - 8 * i));
+        update(lenbuf, 8);
+        std::array<std::uint8_t, 20> out{};
+        for (int i = 0; i < 5; ++i) {
+            out[4 * i]     = static_cast<std::uint8_t>(h[i] >> 24);
+            out[4 * i + 1] = static_cast<std::uint8_t>(h[i] >> 16);
+            out[4 * i + 2] = static_cast<std::uint8_t>(h[i] >> 8);
+            out[4 * i + 3] = static_cast<std::uint8_t>(h[i]);
+        }
+        return out;
+    }
+};
+
+} // namespace
+
+std::array<std::uint8_t, 20> sha1(std::string_view data) {
+    Sha1Ctx ctx;
+    ctx.update(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+    return ctx.finish();
+}
+
 bool constant_time_equal(std::string_view a, std::string_view b) noexcept {
     if (a.size() != b.size()) return false;
     unsigned char diff = 0;
@@ -172,10 +268,40 @@ bool constant_time_equal(std::string_view a, std::string_view b) noexcept {
 }
 
 // ---------------------------------------------------------------------------
-// base64url (RFC 4648 §5, unpadded)
+// base64 (RFC 4648 §4, padded) and base64url (RFC 4648 §5, unpadded)
 // ---------------------------------------------------------------------------
 
+static constexpr char kB64Std[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static constexpr char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+std::string base64_encode(const unsigned char* data, std::size_t len) {
+    std::string out;
+    out.reserve((len + 2) / 3 * 4);
+    std::size_t i = 0;
+    while (i + 3 <= len) {
+        std::uint32_t v = (std::uint32_t(data[i]) << 16) | (std::uint32_t(data[i + 1]) << 8) | data[i + 2];
+        out.push_back(kB64Std[(v >> 18) & 63]);
+        out.push_back(kB64Std[(v >> 12) & 63]);
+        out.push_back(kB64Std[(v >> 6) & 63]);
+        out.push_back(kB64Std[v & 63]);
+        i += 3;
+    }
+    if (len - i == 1) {
+        std::uint32_t v = std::uint32_t(data[i]) << 16;
+        out.push_back(kB64Std[(v >> 18) & 63]);
+        out.push_back(kB64Std[(v >> 12) & 63]);
+        out.push_back('=');
+        out.push_back('=');
+    } else if (len - i == 2) {
+        std::uint32_t v = (std::uint32_t(data[i]) << 16) | (std::uint32_t(data[i + 1]) << 8);
+        out.push_back(kB64Std[(v >> 18) & 63]);
+        out.push_back(kB64Std[(v >> 12) & 63]);
+        out.push_back(kB64Std[(v >> 6) & 63]);
+        out.push_back('=');
+    }
+    return out;
+}
 
 std::string base64url_encode(const unsigned char* data, std::size_t len) {
     std::string out;

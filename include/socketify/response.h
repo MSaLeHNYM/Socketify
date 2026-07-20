@@ -7,6 +7,7 @@
  *  - **Buffered** (default): body accumulated in memory via send()/json()/write().
  *  - **File**: send_file() streams a file from disk (sendfile(2) on plain sockets).
  *  - **Stream** (SSE): the connection stays open and data is pushed later.
+ *  - **Pulse**: bidirectional WebSocket-compatible channel after HTTP 101.
  */
 
 #include "socketify/cookies.h"
@@ -35,7 +36,7 @@ namespace socketify {
 class Response {
 public:
     /** @brief Internal response kind (introspected by the server). */
-    enum class Kind : std::uint8_t { Buffered, File, Stream };
+    enum class Kind : std::uint8_t { Buffered, File, Stream, Pulse };
 
     Response() = default;
 
@@ -160,7 +161,13 @@ public:
         stream_state_ = std::move(state);
         ended_ = true;
     }
-    /** @brief Internal: stream state attached by mark_stream(). */
+    /** @brief Internal: mark this response as a Pulse (WebSocket) upgrade. */
+    void mark_pulse(std::shared_ptr<void> state) {
+        kind_ = Kind::Pulse;
+        stream_state_ = std::move(state);
+        ended_ = true;
+    }
+    /** @brief Internal: stream/pulse state attached by mark_stream/mark_pulse. */
     const std::shared_ptr<void>& stream_state() const noexcept { return stream_state_; }
 
     /** @brief Internal: take the body, leaving the response empty. */

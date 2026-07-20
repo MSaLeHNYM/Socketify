@@ -22,6 +22,7 @@
 #include "socketify/server.h"
 #include "socketify/sessions.h"
 #include "socketify/sse.h"
+#include "socketify/pulse.h"
 #include "socketify/static_files.h"
 #include "socketify/tls.h"
 #include "socketify/db.h"
