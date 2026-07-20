@@ -69,10 +69,11 @@ fi
 echo "==> generating docs with ${DOXYGEN}"
 (cd "${ROOT}" && "${DOXYGEN}" "${DOXYFILE}")
 
-# Ensure the logo lands in the HTML tree (PROJECT_LOGO / HTML_EXTRA_FILES
-# usually copy it; this is a reliable fallback for the main-page <img>).
+# Ensure branding assets land in the HTML tree.
 mkdir -p "${OUT_HTML}"
 cp -f "${ROOT}/assets/logo.png" "${OUT_HTML}/logo.png"
+cp -f "${ROOT}/docs/doxygen/favicon.ico" "${OUT_HTML}/favicon.ico"
+cp -f "${ROOT}/docs/doxygen/favicon.png" "${OUT_HTML}/favicon.png"
 
 if [[ ! -f "${OUT_HTML}/index.html" ]]; then
   echo "error: expected ${OUT_HTML}/index.html was not produced" >&2
@@ -82,7 +83,7 @@ if [[ ! -f "${OUT_HTML}/logo.png" ]]; then
   echo "error: logo.png missing from HTML output" >&2
   exit 1
 fi
-echo "==> wrote ${OUT_HTML}/index.html (+ logo.png)"
+echo "==> wrote ${OUT_HTML}/index.html (+ logo + favicon)"
 
 if [[ "${REGEN_ONLY}" -eq 1 ]]; then
   exit 0

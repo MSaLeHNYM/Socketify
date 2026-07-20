@@ -21,8 +21,12 @@ RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */detail/*
 USE_MDFILE_AS_MAINPAGE = docs/mainpage.md
 IMAGE_PATH             = assets
-PROJECT_LOGO           = assets/logo.png
-HTML_EXTRA_FILES       = assets/logo.png
+PROJECT_LOGO           = docs/doxygen/logo_header.png
+HTML_HEADER            = docs/doxygen/header.html
+HTML_EXTRA_STYLESHEET  = docs/doxygen/custom.css
+HTML_EXTRA_FILES       = assets/logo.png \
+                         docs/doxygen/favicon.ico \
+                         docs/doxygen/favicon.png
 
 # --- Extraction ------------------------------------------------------------
 EXTRACT_ALL            = YES

@@ -1,0 +1,24 @@
+/* Socketify Doxygen extras — keep branding compact and tidy. */
+
+#projectlogo img {
+  height: 48px !important;
+  width: auto !important;
+  max-width: 64px !important;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+#titlearea {
+  padding: 0.35rem 0.5rem;
+}
+
+#projectname {
+  font-size: 1.55rem;
+}
+
+/* Main-page hero logo (inside contents) */
+.contents img[alt="Socketify logo"] {
+  width: 160px !important;
+  max-width: 40% !important;
+  height: auto !important;
+}

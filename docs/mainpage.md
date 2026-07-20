@@ -2,7 +2,7 @@
 
 \htmlonly
 <div style="text-align:center;margin:1.5rem 0 0.5rem">
-  <img src="logo.png" alt="Socketify logo" width="220" style="max-width:60%;height:auto"/>
+  <img src="logo.png" alt="Socketify logo" width="160" style="max-width:40%;height:auto"/>
 </div>
 <div style="text-align:center;margin-bottom:1.5rem">
   <strong>A fast, modern C++20 HTTP/HTTPS server &amp; routing framework</strong><br/>
