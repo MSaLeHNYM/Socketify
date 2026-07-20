@@ -162,11 +162,20 @@ sudo apt install build-essential cmake ninja-build \
 
 ## How to build
 
-### 1. Clone
+### 1. Clone (with examples submodules)
+
+Ripple and other showcase apps live as **git submodules** under `examples/`.
+Clone with recursion so they come along:
 
 ```bash
-git clone https://github.com/yourname/socketify.git
-cd socketify
+git clone --recurse-submodules https://github.com/MSaLeHNYM/Socketify.git
+cd Socketify
+```
+
+Already cloned without submodules?
+
+```bash
+git submodule update --init --recursive
 ```
 
 ### 2. Configure & build (Release)
@@ -254,10 +263,24 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 | [`08_nexus_board`](examples/08_nexus_board) | **React + SQLite app**: auth, projects, kanban, uploads, live SSE |
 | [`09_orm_demo`](examples/09_orm_demo) | `socketify::db` ORM: models, relations, migrations, Mongo documents |
 | [`10_pulse_chat`](examples/10_pulse_chat) | lobby chat over Pulse (browser `WebSocket` + `pulse::Hub`) |
+| [`ripple`](examples/ripple) | **[Ripple](https://github.com/MSaLeHNYM/ripple)** — Telegram-style messenger (Pulse + SQLite + React) · *submodule* |
+
+<p align="center">
+  <a href="https://github.com/MSaLeHNYM/ripple">
+    <img src="examples/ripple/assets/logo.svg" alt="Ripple" width="72">
+  </a>
+</p>
+
+<p align="center">
+  <strong><a href="https://github.com/MSaLeHNYM/ripple">Ripple</a></strong> — <em>Messages that ripple.</em><br>
+  Full messenger showcase: accounts, DMs, groups, presence, typing indicators.<br>
+  Built with Socketify Pulse + <code>db</code> ORM (SQLite) + React · MIT licensed.
+</p>
 
 ```bash
-./scripts/run_examples.sh 07   # build and run the fullstack guestbook
-./scripts/run_examples.sh 10   # Pulse lobby chat
+./scripts/run_examples.sh 07       # fullstack guestbook
+./scripts/run_examples.sh 10       # Pulse lobby chat
+./scripts/run_examples.sh ripple   # Ripple messenger → http://localhost:8080
 ```
 
 ## Tests

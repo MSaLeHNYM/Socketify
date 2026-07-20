@@ -1,0 +1,3 @@
+[submodule "examples/ripple"]
+	path = examples/ripple
+	url = https://github.com/MSaLeHNYM/ripple.git
