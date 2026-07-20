@@ -43,8 +43,11 @@
 /.deps/
 *.deb
 
-# --- Generated documentation -------------------------------------------------
+# --- Generated documentation (LOCAL ONLY — never commit / never push) --------
+# Produced by ./scripts/serve_docs.sh  →  docs/generated/
 /docs/generated/
+docs/generated/
+**/docs/generated/**
 /html/
 /latex/
 /man/

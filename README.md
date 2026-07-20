@@ -197,17 +197,16 @@ AddressSanitizer/UBSan in the debug build:
 ## Documentation
 
 - Hand-written guide: <a href="docs/API.md">docs/API.md</a>
-- API reference (auto-generate + open in browser):
+- **API reference (local only)** — generate with the script; HTML is written
+  to `docs/generated/` which is **gitignored** (not pushed to GitHub):
 
 ```bash
-./scripts/serve_docs.sh          # http://127.0.0.1:8765/
+./scripts/serve_docs.sh          # regen + http://127.0.0.1:8765/
 ./scripts/serve_docs.sh 9000     # custom port
-./scripts/serve_docs.sh --regen-only   # generate only, don't serve
+./scripts/serve_docs.sh --regen-only
 ```
 
 Requires `doxygen` on `PATH` (or under `.deps/sysroot/usr/bin/doxygen`).
-You can also run `doxygen docs/Doxyfile` manually, or
-`cmake --build build --target docs` with `-DSOCKETIFY_BUILD_DOCS=ON`.
 
 ## Benchmarks
 

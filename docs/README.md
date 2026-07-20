@@ -1,23 +1,14 @@
 # Socketify documentation
 
-- **[Guide (API.md)](API.md)** — hand-written walkthrough: getting started,
-  routing, middleware, request/response, body parsing, sessions, static
-  files, SSE, TLS and deployment tips.
-- **API reference (Doxygen)** — generated from the comments in
-  `include/socketify/`:
+- **[Guide (API.md)](API.md)** — hand-written walkthrough (in the repo).
+- **API reference (Doxygen)** — **generate locally**, do not commit the HTML:
 
   ```bash
-  doxygen docs/Doxyfile
-  # open docs/generated/html/index.html
+  ./scripts/serve_docs.sh          # builds docs/generated/ + serves on 127.0.0.1
   ```
 
-  or through CMake:
+  `docs/generated/` is gitignored and must never be pushed to GitHub.
+  Source for the generator: `docs/Doxyfile`, `docs/mainpage.md`, `docs/doxygen/`.
 
-  ```bash
-  cmake -B build -DSOCKETIFY_BUILD_DOCS=ON
-  cmake --build build --target docs
-  ```
-
-- **[Examples](../examples/)** — seven runnable programs, from hello world
-  to a fullstack guestbook (`../scripts/run_examples.sh 01`–`07`).
+- **[Examples](../examples/)** — graded tour (`../scripts/run_examples.sh 01`–`07`).
 - **[Project README](../README.md)** — features, build options, quick start.

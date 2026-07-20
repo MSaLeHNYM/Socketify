@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Generate Doxygen API docs and serve them on localhost (opens a browser).
+# Generate Doxygen API docs LOCALLY and serve them on 127.0.0.1 (opens a browser).
+#
+# Output goes to docs/generated/ which is gitignored — never committed or
+# pushed to GitHub. Always regenerate with this script when you need docs.
 #
 # Usage:
 #   ./scripts/serve_docs.sh            # generate + serve on :8765
