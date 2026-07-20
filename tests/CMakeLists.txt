@@ -24,6 +24,7 @@ add_executable(socketify_tests
     unit/cors_tests.cpp
     unit/ratelimit_tests.cpp
     unit/sessions_tests.cpp
+    unit/db_tests.cpp
     unit/static_files_tests.cpp
     unit/response_tests.cpp
     integration/server_integration_tests.cpp

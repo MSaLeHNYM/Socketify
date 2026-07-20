@@ -1,0 +1,1 @@
+../../examples/08_nexus_board/third_party/sqlite/sqlite3.h

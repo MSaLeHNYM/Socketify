@@ -1,0 +1,3 @@
+add_executable(example_09_orm_demo main.cpp)
+target_link_libraries(example_09_orm_demo PRIVATE Socketify::socketify)
+socketify_set_warnings(example_09_orm_demo)

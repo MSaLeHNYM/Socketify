@@ -70,6 +70,9 @@ int main() {
   compression, body-size limits
 - **Sessions** — pluggable manager: server store, signed cookie, or JWT
   (cookie / Bearer); rolling TTL, `regenerate()`, default MemoryStore
+- **ORM / database** — `socketify::db` models & schema DSL for SQLite,
+  PostgreSQL, MySQL; MongoDB documents (`memory://` or mongo-cxx); migrations,
+  validations, hooks, relations, pools, transactions
 - **Server-Sent Events** — `sse::upgrade()` with a thread-safe session
   handle for pushing events from any thread
 - **Performance architecture** — one epoll loop per worker thread,
@@ -203,6 +206,10 @@ cmake --install build --prefix /usr/local
 | Option | Default | Meaning |
 |---|---|---|
 | `SOCKETIFY_WITH_TLS` | `ON` | HTTPS support (needs OpenSSL) |
+| `SOCKETIFY_WITH_SQLITE` | `ON` | SQLite driver for `socketify::db` |
+| `SOCKETIFY_WITH_POSTGRES` | `OFF` | PostgreSQL driver (libpq) |
+| `SOCKETIFY_WITH_MYSQL` | `OFF` | MySQL driver (libmysqlclient) |
+| `SOCKETIFY_WITH_MONGO` | `OFF` | MongoDB driver (mongo-cxx); `memory://` always available |
 | `SOCKETIFY_BUILD_EXAMPLES` | `OFF` | Build `examples/` |
 | `SOCKETIFY_BUILD_TESTS` | `OFF` | Build GoogleTest suite |
 | `SOCKETIFY_BUILD_DOCS` | `OFF` | Add a `docs` Doxygen target |
@@ -242,6 +249,7 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 | [`06_https`](examples/06_https) | TLS with a self-signed dev cert |
 | [`07_fullstack`](examples/07_fullstack) | everything combined: frontend + API + sessions + SSE |
 | [`08_nexus_board`](examples/08_nexus_board) | **React + SQLite app**: auth, projects, kanban, uploads, live SSE |
+| [`09_orm_demo`](examples/09_orm_demo) | `socketify::db` ORM: models, relations, migrations, Mongo documents |
 
 ```bash
 ./scripts/run_examples.sh 07   # build and run the fullstack guestbook

@@ -4,13 +4,17 @@ project(Socketify
     VERSION 0.2.0
     DESCRIPTION "Socketify: a fast, modern C++20 HTTP/HTTPS server & routing framework"
     HOMEPAGE_URL "https://github.com/yourname/socketify"
-    LANGUAGES CXX
+    LANGUAGES CXX C
 )
 
 # ---------------------------
 # Options
 # ---------------------------
 option(SOCKETIFY_WITH_TLS "Enable HTTPS (OpenSSL)" ON)
+option(SOCKETIFY_WITH_SQLITE "Enable SQLite SQL driver for socketify::db" ON)
+option(SOCKETIFY_WITH_POSTGRES "Enable PostgreSQL SQL driver (libpq)" OFF)
+option(SOCKETIFY_WITH_MYSQL "Enable MySQL SQL driver (libmysqlclient)" OFF)
+option(SOCKETIFY_WITH_MONGO "Enable MongoDB driver (mongo-cxx-driver)" OFF)
 option(SOCKETIFY_BUILD_EXAMPLES "Build examples" OFF)
 option(SOCKETIFY_BUILD_TESTS "Build tests" OFF)
 option(SOCKETIFY_BUILD_DOCS "Add a 'docs' target (requires Doxygen)" OFF)
@@ -40,6 +44,46 @@ if(SOCKETIFY_WITH_TLS)
     find_package(OpenSSL REQUIRED)
 endif()
 
+# ---- DB backends ----
+set(SOCKETIFY_HAS_SQLITE_INT 0)
+set(SOCKETIFY_HAS_POSTGRES_INT 0)
+set(SOCKETIFY_HAS_MYSQL_INT 0)
+set(SOCKETIFY_HAS_MONGO_INT 0)
+set(SOCKETIFY_SQLITE_VENDORED 0)
+
+if(SOCKETIFY_WITH_SQLITE)
+    find_package(SQLite3 QUIET)
+    if(SQLite3_FOUND)
+        set(SOCKETIFY_HAS_SQLITE_INT 1)
+    elseif(EXISTS "${CMAKE_CURRENT_LIST_DIR}/third_party/sqlite/sqlite3.c")
+        set(SOCKETIFY_HAS_SQLITE_INT 1)
+        set(SOCKETIFY_SQLITE_VENDORED 1)
+        message(STATUS "SQLite: using vendored amalgamation in third_party/sqlite")
+    else()
+        message(FATAL_ERROR "SOCKETIFY_WITH_SQLITE=ON but SQLite3 not found and no vendored amalgamation")
+    endif()
+endif()
+
+if(SOCKETIFY_WITH_POSTGRES)
+    find_package(PostgreSQL REQUIRED)
+    set(SOCKETIFY_HAS_POSTGRES_INT 1)
+endif()
+
+if(SOCKETIFY_WITH_MYSQL)
+    find_path(MYSQL_INCLUDE_DIR mysql/mysql.h)
+    find_library(MYSQL_LIB NAMES mysqlclient mariadb)
+    if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIB)
+        message(FATAL_ERROR "SOCKETIFY_WITH_MYSQL=ON but libmysqlclient not found")
+    endif()
+    set(SOCKETIFY_HAS_MYSQL_INT 1)
+endif()
+
+if(SOCKETIFY_WITH_MONGO)
+    find_package(mongocxx REQUIRED)
+    find_package(bsoncxx REQUIRED)
+    set(SOCKETIFY_HAS_MONGO_INT 1)
+endif()
+
 # ---------------------------
 # Sources / Headers
 # ---------------------------
@@ -61,6 +105,19 @@ set(SOCKETIFY_PUBLIC_HEADERS
     include/socketify/logging.h
     include/socketify/tls.h
     include/socketify/sse.h
+    include/socketify/db.h
+    include/socketify/db/error.h
+    include/socketify/db/schema.h
+    include/socketify/db/engine.h
+    include/socketify/db/pool.h
+    include/socketify/db/query.h
+    include/socketify/db/migration.h
+    include/socketify/db/relation.h
+    include/socketify/db/validation.h
+    include/socketify/db/database.h
+    include/socketify/db/model.h
+    include/socketify/db/model_impl.h
+    include/socketify/db/document.h
     include/socketify/detail/loop.h
     include/socketify/detail/socket.h
     include/socketify/detail/http_parser.h
@@ -87,6 +144,15 @@ set(SOCKETIFY_SOURCES
     src/logging.cpp
     src/tls.cpp
     src/sse.cpp
+    src/db/schema.cpp
+    src/db/database.cpp
+    src/db/query.cpp
+    src/db/record.cpp
+    src/db/migration.cpp
+    src/db/sqlite_engine.cpp
+    src/db/postgres_engine.cpp
+    src/db/mysql_engine.cpp
+    src/db/mongo_engine.cpp
     src/detail/loop_epoll.cpp
     src/detail/socket_posix.cpp
     src/detail/http_parser_sm.cpp
@@ -122,6 +188,42 @@ if(SOCKETIFY_WITH_TLS)
     target_link_libraries(socketify PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 else()
     target_compile_definitions(socketify PUBLIC SOCKETIFY_HAS_TLS=0)
+endif()
+
+target_compile_definitions(socketify PUBLIC
+    SOCKETIFY_HAS_SQLITE=${SOCKETIFY_HAS_SQLITE_INT}
+    SOCKETIFY_HAS_POSTGRES=${SOCKETIFY_HAS_POSTGRES_INT}
+    SOCKETIFY_HAS_MYSQL=${SOCKETIFY_HAS_MYSQL_INT}
+    SOCKETIFY_HAS_MONGO=${SOCKETIFY_HAS_MONGO_INT}
+)
+
+if(SOCKETIFY_HAS_SQLITE_INT)
+    if(SOCKETIFY_SQLITE_VENDORED)
+        target_sources(socketify PRIVATE third_party/sqlite/sqlite3.c)
+        target_include_directories(socketify PRIVATE
+            ${CMAKE_CURRENT_LIST_DIR}/third_party/sqlite)
+        target_compile_definitions(socketify PRIVATE
+            SQLITE_OMIT_LOAD_EXTENSION SQLITE_THREADSAFE=1)
+        set_source_files_properties(third_party/sqlite/sqlite3.c PROPERTIES
+            COMPILE_FLAGS "-Wno-unused-parameter -Wno-implicit-fallthrough -w")
+        target_link_libraries(socketify PUBLIC ${CMAKE_DL_LIBS})
+    else()
+        target_link_libraries(socketify PUBLIC SQLite::SQLite3)
+    endif()
+endif()
+
+if(SOCKETIFY_HAS_POSTGRES_INT)
+    target_include_directories(socketify PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(socketify PUBLIC PostgreSQL::PostgreSQL)
+endif()
+
+if(SOCKETIFY_HAS_MYSQL_INT)
+    target_include_directories(socketify PRIVATE ${MYSQL_INCLUDE_DIR})
+    target_link_libraries(socketify PUBLIC ${MYSQL_LIB})
+endif()
+
+if(SOCKETIFY_HAS_MONGO_INT)
+    target_link_libraries(socketify PUBLIC mongo::mongocxx_shared mongo::bsoncxx_shared)
 endif()
 
 socketify_set_warnings(socketify)
@@ -210,6 +312,10 @@ message(STATUS "== Socketify ${PROJECT_VERSION} ==")
 message(STATUS "  Build type:  ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Shared libs: ${BUILD_SHARED_LIBS}")
 message(STATUS "  TLS:         ${SOCKETIFY_WITH_TLS}")
+message(STATUS "  SQLite:      ${SOCKETIFY_HAS_SQLITE_INT}")
+message(STATUS "  Postgres:    ${SOCKETIFY_HAS_POSTGRES_INT}")
+message(STATUS "  MySQL:       ${SOCKETIFY_HAS_MYSQL_INT}")
+message(STATUS "  Mongo:       ${SOCKETIFY_HAS_MONGO_INT}")
 message(STATUS "  Examples:    ${SOCKETIFY_BUILD_EXAMPLES}")
 message(STATUS "  Tests:       ${SOCKETIFY_BUILD_TESTS}")
 message(STATUS "  Docs:        ${SOCKETIFY_BUILD_DOCS}")

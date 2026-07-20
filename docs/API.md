@@ -10,6 +10,7 @@ generate the Doxygen docs (`doxygen docs/Doxyfile`).
 - [Body parsing](#body-parsing)
 - [Middleware](#middleware)
 - [Sessions](#sessions)
+- [Database ORM (`socketify::db`)](#database-orm-socketifydb)
 - [Static files](#static-files)
 - [Server-Sent Events](#server-sent-events)
 - [HTTPS / TLS](#https--tls)
@@ -250,6 +251,72 @@ server.Get("/profile", [](Request& req, Response& res) {
 `sess->touch()` forces a TTL refresh without changing data.
 Low-level JWT helpers: `sessions::jwt::encode` / `sessions::jwt::decode`.
 Custom stores implement `sessions::Store` (`load` / `save` / `destroy`).
+
+## Database ORM (`socketify::db`)
+
+ActiveRecord-style models for **SQLite / PostgreSQL / MySQL**, plus a **MongoDB**
+(document) API. Enable backends with CMake:
+
+| Option | Default | Driver |
+|--------|---------|--------|
+| `SOCKETIFY_WITH_SQLITE` | ON | SQLite (system or vendored amalgamation) |
+| `SOCKETIFY_WITH_POSTGRES` | OFF | libpq |
+| `SOCKETIFY_WITH_MYSQL` | OFF | libmysqlclient |
+| `SOCKETIFY_WITH_MONGO` | OFF | mongo-cxx-driver (`mongodb://…`); `memory://` always works |
+
+```cpp
+#include <socketify/db.h>
+using namespace socketify::db;
+
+struct User : Model<User> {
+    static constexpr std::string_view table = "users";
+    static Schema schema() {
+        return Schema::create(table)
+            .integer("id").primary().autoincrement()
+            .text("email").unique().not_null()
+            .text("name").not_null()
+            .timestamps();
+    }
+    static void boot() {
+        validates("email", required(), email());
+        has_many_on("posts", "user_id", "posts");
+        before_save([](Record& r){ /* normalize */ });
+    }
+};
+
+auto db = Database::open(Sqlite{.path = "app.db"});
+// Database::open(Postgres{.host="127.0.0.1", .db="app", .user="app", .password="…"});
+// Database::open(Mysql{…});
+// Database::open(Mongo{.uri="mongodb://127.0.0.1:27017", .db="app"});
+// Database::open(Mongo{.uri="memory://"});  // in-process documents (tests/dev)
+
+User::migrate_schema(db);
+db.migrate();  // runs MigrationRegistry entries
+
+auto u = User::create(db, {{"email","a@b.c"},{"name","Ada"}});
+auto rows = User::query(db).where_eq("email","a@b.c").order_by("id").limit(10).get();
+u->related("posts");
+db.transaction([&]{ /* … */; return 0; });
+```
+
+Documents (Mongo / memory):
+
+```cpp
+struct Note : Document<Note> {
+    static constexpr std::string_view collection = "notes";
+    static void boot() {
+        validates("body", required());
+        index(IndexSpec::asc("tag"));
+    }
+};
+auto docs = Database::open(Mongo{.uri = "memory://"});
+Note::ensure_indexes(docs);
+auto n = Note::create(docs, {{"body","hi"},{"tag","orm"}});
+```
+
+Raw escape hatches: `db.exec(sql, binds)`, `db.query(sql, binds)`,
+`db.documents()` for low-level collection ops. Prefer offloading blocking DB
+work to a thread pool from request handlers.
 
 ## Static files
 
