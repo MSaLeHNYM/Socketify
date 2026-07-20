@@ -226,7 +226,8 @@ Socketify is released under a **source-available** license (see [LICENSE](LICENS
 | Link statically or dynamically against an **unmodified** build | Treat Socketify as open-source-to-relicense |
 
 **Want to contribute a patch?** Ask first — email
-[saleh.ue4@gmail.com](mailto:saleh.ue4@gmail.com) for permission. Approved
+[saleh.ue4@gmail.com](mailto:saleh.ue4@gmail.com) or Telegram
+[@MSaLeHNYM](https://t.me/MSaLeHNYM) for permission. Approved
 contributions are assigned to the copyright holder so ownership stays unified.
 
 All copyright and legal ownership of this software belong exclusively to
