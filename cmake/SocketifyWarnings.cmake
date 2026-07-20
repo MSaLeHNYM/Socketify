@@ -21,28 +21,34 @@ function(socketify_set_warnings target)
             target_compile_options(${target} PRIVATE /WX)
         endif()
     else()
+        # CXX-only flags must not be applied to C sources (e.g. vendored sqlite3.c).
         target_compile_options(${target} PRIVATE
-            -Wall
-            -Wextra
-            -Wpedantic
-            -Wshadow
-            -Wnon-virtual-dtor
-            -Wold-style-cast
-            -Wcast-align
-            -Wunused
-            -Woverloaded-virtual
-            -Wnull-dereference
-            -Wdouble-promotion
+            $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wshadow>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wcast-align>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wunused>
+            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wnull-dereference>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wdouble-promotion>
+            $<$<COMPILE_LANGUAGE:C>:-Wall>
+            $<$<COMPILE_LANGUAGE:C>:-Wextra>
+            $<$<COMPILE_LANGUAGE:C>:-Wno-unused-parameter>
         )
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
             target_compile_options(${target} PRIVATE
-                -Wduplicated-cond
-                -Wduplicated-branches
-                -Wlogical-op
+                $<$<COMPILE_LANGUAGE:CXX>:-Wduplicated-cond>
+                $<$<COMPILE_LANGUAGE:CXX>:-Wduplicated-branches>
+                $<$<COMPILE_LANGUAGE:CXX>:-Wlogical-op>
             )
         endif()
         if(SOCKETIFY_WERROR)
-            target_compile_options(${target} PRIVATE -Werror)
+            target_compile_options(${target} PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-Werror>
+            )
         endif()
     endif()
 endfunction()

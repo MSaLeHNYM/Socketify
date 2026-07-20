@@ -8,6 +8,7 @@
 
 #if SOCKETIFY_HAS_SQLITE
 #include <sqlite3.h>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #endif
@@ -128,10 +129,15 @@ private:
                 sqlite3_bind_double(st, idx, v.get<double>());
             } else if (v.is_string()) {
                 const auto& s = v.get_ref<const std::string&>();
-                sqlite3_bind_text(st, idx, s.data(), static_cast<int>(s.size()), SQLITE_TRANSIENT);
+                // SQLITE_TRANSIENT uses an old-style cast in sqlite3.h — avoid -Wold-style-cast.
+                auto* dtor = reinterpret_cast<sqlite3_destructor_type>(
+                    static_cast<std::intptr_t>(-1));
+                sqlite3_bind_text(st, idx, s.data(), static_cast<int>(s.size()), dtor);
             } else {
                 auto s = v.dump();
-                sqlite3_bind_text(st, idx, s.data(), static_cast<int>(s.size()), SQLITE_TRANSIENT);
+                auto* dtor = reinterpret_cast<sqlite3_destructor_type>(
+                    static_cast<std::intptr_t>(-1));
+                sqlite3_bind_text(st, idx, s.data(), static_cast<int>(s.size()), dtor);
             }
         }
     }
