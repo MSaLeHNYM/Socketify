@@ -241,6 +241,7 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 | [`05_sse_chat`](examples/05_sse_chat) | live feed over Server-Sent Events |
 | [`06_https`](examples/06_https) | TLS with a self-signed dev cert |
 | [`07_fullstack`](examples/07_fullstack) | everything combined: frontend + API + sessions + SSE |
+| [`08_nexus_board`](examples/08_nexus_board) | **React + SQLite app**: auth, projects, kanban, uploads, live SSE |
 
 ```bash
 ./scripts/run_examples.sh 07   # build and run the fullstack guestbook

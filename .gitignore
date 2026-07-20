@@ -70,6 +70,13 @@ docs/generated/
 /examples/*/*.out
 /examples/06_https/server.crt
 /examples/06_https/server.key
+/examples/08_nexus_board/frontend/node_modules/
+/examples/08_nexus_board/frontend/dist/
+/examples/08_nexus_board/data/
+/examples/08_nexus_board/uploads/
+# keep amalgamation; ignore extracted zip leftovers
+/examples/08_nexus_board/third_party/sqlite/sqlite.zip
+/examples/08_nexus_board/third_party/sqlite/sqlite-amalgamation-*/
 /tests/*/CMakeFiles/
 /tests/*/cmake_install.cmake
 /tests/*/Makefile
