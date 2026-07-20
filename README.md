@@ -76,6 +76,67 @@ int main() {
   `SO_REUSEPORT` listeners (no accept contention), non-blocking sockets,
   buffered writes, timer-based connection expiry
 
+## Benchmarks
+
+Same machine, same endpoint, same load tool — **Socketify vs Express / Flask / Django**.
+
+| | |
+|---|---|
+| **What** | `GET /ping` → `{"ok":true}` (no DB, no templates) |
+| **How** | [wrk](https://github.com/wg/wrk) `-t4 -c100 -d8s`, localhost keep-alive |
+| **Where** | Intel i7-12700K · 20 threads · Linux · 2026-07-20 |
+
+### Throughput — requests / second
+
+<p align="center">
+  <img src="assets/benchmark_rps.svg" alt="Throughput chart: Socketify vs Express, Flask, Django" width="920">
+</p>
+
+| Rank | Framework | req/s | vs Socketify |
+|:---:|---|---:|---:|
+| 1 | **Socketify** (C++20 · epoll) | **909,254** | — |
+| 2 | Express 4 (Node.js) | 61,208 | **~15× slower** |
+| 3 | Flask 3 + Waitress | 1,862 | **~488× slower** |
+| 4 | Django 4 + Waitress | 1,202 | **~757× slower** |
+
+### Latency — p99 (lower is better)
+
+<p align="center">
+  <img src="assets/benchmark_latency.svg" alt="P99 latency chart: Socketify vs Express, Flask, Django" width="920">
+</p>
+
+| Framework | avg | p50 | p99 |
+|---|---:|---:|---:|
+| **Socketify** | **0.080 ms** | **0.054 ms** | **0.124 ms** |
+| Express | 1.98 ms | 1.57 ms | 2.30 ms |
+| Django | 82.5 ms | 90.5 ms | 123 ms |
+| Flask | 86.3 ms | 51.6 ms | 1140 ms |
+
+Charts are animated SVGs with a **transparent background** (labels adapt to light/dark themes).
+
+<details>
+<summary><strong>Methodology, public benchmarks &amp; how to reproduce</strong></summary>
+
+<br>
+
+**Why Socketify wins this test:** native C++20, epoll + `SO_REUSEPORT` workers, almost no per-request overhead. Interpreted stacks (Node / Python) pay runtime and middleware costs even on a trivial handler.
+
+**Public suites (different hardware — order only):**
+
+| Source | Express | Flask | Django |
+|---|---:|---:|---:|
+| [Sharkbench](https://sharkbench.dev/web/python) (2025-08) | ~5,766 | ~1,092 | ~950 |
+| [Commodity `/ping` write-up](https://augustinejoseph.medium.com/fastapi-vs-django-vs-django-ninja-vs-fastify-vs-express-a-real-world-performance-benchmark-on-0b0fd1db9eb0) | ~6,500 | — | much lower w/ default middleware |
+
+> Micro-benchmarks ≠ production apps (DB, auth, business logic dominate there). Always measure *your* workload. Raw JSON: [`benchmarks/results.json`](benchmarks/results.json).
+
+```bash
+./benchmarks/run_all.sh
+# optional: DURATION=10 CONCURRENCY=200 ./benchmarks/run_all.sh
+```
+
+</details>
+
 ## Requirements
 
 | Dependency | Notes |
@@ -207,59 +268,6 @@ AddressSanitizer/UBSan in the debug build:
 ```
 
 Requires `doxygen` on `PATH` (or under `.deps/sysroot/usr/bin/doxygen`).
-
-## Benchmarks
-
-Same-machine **JSON `/ping`** micro-benchmark (`{"ok":true}`), measured with
-[wrk](https://github.com/wg/wrk) (`-t4 -c100 -d8s`), localhost keep-alive,
-no database. Regenerated on **2026-07-20** (Intel i7-12700K, 20 threads, Linux).
-
-Charts are **animated SVGs** with a **transparent background** (text/grid adapt to
-light & dark themes via `prefers-color-scheme`).
-
-<p align="center">
-  <img src="assets/benchmark_rps.svg" alt="Requests per second comparison (animated SVG)" width="920">
-</p>
-
-| Framework | req/s | avg latency | p99 latency | vs Socketify |
-|---|---:|---:|---:|---:|
-| **Socketify** (epoll, Release) | **909,254** | **0.080 ms** | **0.124 ms** | 1.0× |
-| Express 4 (Node.js) | 61,208 | 1.98 ms | 2.30 ms | ~15× slower |
-| Flask 3 + Waitress | 1,862 | 86.3 ms | 1140 ms | ~488× slower |
-| Django 4 + Waitress (no middleware) | 1,202 | 82.5 ms | 123 ms | ~757× slower |
-
-<p align="center">
-  <img src="assets/benchmark_latency.svg" alt="P99 latency comparison (animated SVG)" width="920">
-</p>
-
-### How this compares to public numbers
-
-Independent suites (different hardware / clients — **not** apples-to-apples
-with the table above) still show the same *ordering* for dynamic languages:
-
-| Source | Express | Flask | Django |
-|---|---:|---:|---:|
-| [Sharkbench](https://sharkbench.dev/web/python) (2025-08, Ryzen 7800X3D) | ~5,766 req/s | ~1,092 (Gunicorn) | ~950 (Gunicorn) |
-| Commodity `/ping` write-up ([Medium](https://augustinejoseph.medium.com/fastapi-vs-django-vs-django-ninja-vs-fastify-vs-express-a-real-world-performance-benchmark-on-0b0fd1db9eb0)) | ~6,500 req/s | — | much lower with default middleware |
-
-Socketify’s advantage comes from **native C++20**, an **epoll + `SO_REUSEPORT`**
-worker model, and almost no per-request overhead on the hot path — the same
-reasons native servers beat interpreted stacks on plaintext/JSON ping tests.
-
-> **Caveats:** micro-benchmarks ≠ your app. Real APIs spend time in DB, auth,
-> and business logic. Always measure your workload. Full raw JSON:
-> [`benchmarks/results.json`](benchmarks/results.json).
-
-### Reproduce
-
-```bash
-./benchmarks/run_all.sh
-# optional: DURATION=10 CONCURRENCY=200 ./benchmarks/run_all.sh
-```
-
-This builds Release Socketify, spins Flask / Express / Django ping servers,
-runs wrk, writes `benchmarks/results.json`, then regenerates the animated
-SVGs via `benchmarks/render_charts.py`.
 
 ## Roadmap
 
