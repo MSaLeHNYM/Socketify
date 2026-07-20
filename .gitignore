@@ -134,3 +134,12 @@ ubsan.log.*
 venv/
 __pycache__/
 *.pyc
+
+# --- Benchmark local deps (charts + results.json ARE committed) ---------------
+/benchmarks/.venv/
+/benchmarks/node_modules/
+/benchmarks/package-lock.json
+/benchmarks/package.json
+/benchmarks/servers/socketify_ping
+/benchmarks/wrk
+/build-bench/

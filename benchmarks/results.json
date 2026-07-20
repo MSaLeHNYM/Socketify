@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "tool": "wrk",
+    "duration_s": 8,
+    "connections": 100,
+    "threads": 4,
+    "endpoint": "GET /ping \u2192 {\"ok\":true}",
+    "host": "127.0.0.1",
+    "cpu_cores": 20,
+    "notes": "Same machine, localhost, keep-alive. Minimal handlers (Django with MIDDLEWARE=[]). Not identical to TechEmpower/Sharkbench hardware \u2014 use for relative comparison."
+  },
+  "results": [
+    {
+      "name": "Socketify",
+      "rps": 909253.98,
+      "requests_ok": 7365010,
+      "latency_avg_ms": 0.08031999999999999,
+      "latency_p50_ms": 0.054,
+      "latency_p99_ms": 0.124,
+      "transfer_per_sec": "140.48MB"
+    },
+    {
+      "name": "Express (Node)",
+      "rps": 61208.13,
+      "requests_ok": 495817,
+      "latency_avg_ms": 1.98,
+      "latency_p50_ms": 1.57,
+      "latency_p99_ms": 2.3,
+      "transfer_per_sec": "14.30MB"
+    },
+    {
+      "name": "Flask (Waitress)",
+      "rps": 1861.53,
+      "requests_ok": 14901,
+      "latency_avg_ms": 86.29,
+      "latency_p50_ms": 51.62,
+      "latency_p99_ms": 1140.0,
+      "transfer_per_sec": "251.01KB"
+    },
+    {
+      "name": "Django (Waitress)",
+      "rps": 1202.12,
+      "requests_ok": 9627,
+      "latency_avg_ms": 82.48,
+      "latency_p50_ms": 90.46,
+      "latency_p99_ms": 123.03,
+      "transfer_per_sec": "205.46KB"
+    }
+  ]
+}

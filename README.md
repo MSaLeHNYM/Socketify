@@ -210,10 +210,56 @@ Requires `doxygen` on `PATH` (or under `.deps/sysroot/usr/bin/doxygen`).
 
 ## Benchmarks
 
-*Placeholder — reproducible wrk/oha benchmark harness planned. The
-architecture (epoll + SO_REUSEPORT per worker, zero-copy sendfile, no
-per-request allocs on the hot path) is built for high throughput; numbers
-will be published once the harness lands.*
+Same-machine **JSON `/ping`** micro-benchmark (`{"ok":true}`), measured with
+[wrk](https://github.com/wg/wrk) (`-t4 -c100 -d8s`), localhost keep-alive,
+no database. Regenerated on **2026-07-20** (Intel i7-12700K, 20 threads, Linux).
+
+Charts are **animated SVGs** with a **transparent background** (text/grid adapt to
+light & dark themes via `prefers-color-scheme`).
+
+<p align="center">
+  <img src="assets/benchmark_rps.svg" alt="Requests per second comparison (animated SVG)" width="920">
+</p>
+
+| Framework | req/s | avg latency | p99 latency | vs Socketify |
+|---|---:|---:|---:|---:|
+| **Socketify** (epoll, Release) | **909,254** | **0.080 ms** | **0.124 ms** | 1.0× |
+| Express 4 (Node.js) | 61,208 | 1.98 ms | 2.30 ms | ~15× slower |
+| Flask 3 + Waitress | 1,862 | 86.3 ms | 1140 ms | ~488× slower |
+| Django 4 + Waitress (no middleware) | 1,202 | 82.5 ms | 123 ms | ~757× slower |
+
+<p align="center">
+  <img src="assets/benchmark_latency.svg" alt="P99 latency comparison (animated SVG)" width="920">
+</p>
+
+### How this compares to public numbers
+
+Independent suites (different hardware / clients — **not** apples-to-apples
+with the table above) still show the same *ordering* for dynamic languages:
+
+| Source | Express | Flask | Django |
+|---|---:|---:|---:|
+| [Sharkbench](https://sharkbench.dev/web/python) (2025-08, Ryzen 7800X3D) | ~5,766 req/s | ~1,092 (Gunicorn) | ~950 (Gunicorn) |
+| Commodity `/ping` write-up ([Medium](https://augustinejoseph.medium.com/fastapi-vs-django-vs-django-ninja-vs-fastify-vs-express-a-real-world-performance-benchmark-on-0b0fd1db9eb0)) | ~6,500 req/s | — | much lower with default middleware |
+
+Socketify’s advantage comes from **native C++20**, an **epoll + `SO_REUSEPORT`**
+worker model, and almost no per-request overhead on the hot path — the same
+reasons native servers beat interpreted stacks on plaintext/JSON ping tests.
+
+> **Caveats:** micro-benchmarks ≠ your app. Real APIs spend time in DB, auth,
+> and business logic. Always measure your workload. Full raw JSON:
+> [`benchmarks/results.json`](benchmarks/results.json).
+
+### Reproduce
+
+```bash
+./benchmarks/run_all.sh
+# optional: DURATION=10 CONCURRENCY=200 ./benchmarks/run_all.sh
+```
+
+This builds Release Socketify, spins Flask / Express / Django ping servers,
+runs wrk, writes `benchmarks/results.json`, then regenerates the animated
+SVGs via `benchmarks/render_charts.py`.
 
 ## Roadmap
 
