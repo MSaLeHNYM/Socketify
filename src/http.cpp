@@ -106,14 +106,18 @@ std::string_view reason(Status s) {
         case Status::Forbidden:           return "Forbidden";
         case Status::NotFound:            return "Not Found";
         case Status::MethodNotAllowed:    return "Method Not Allowed";
+        case Status::NotAcceptable:       return "Not Acceptable";
         case Status::RequestTimeout:      return "Request Timeout";
         case Status::Conflict:            return "Conflict";
         case Status::Gone:                return "Gone";
+        case Status::LengthRequired:      return "Length Required";
         case Status::PayloadTooLarge:     return "Payload Too Large";
         case Status::URITooLong:          return "URI Too Long";
         case Status::UnsupportedMediaType:return "Unsupported Media Type";
         case Status::RangeNotSatisfiable: return "Range Not Satisfiable";
+        case Status::UnprocessableEntity: return "Unprocessable Entity";
         case Status::TooManyRequests:     return "Too Many Requests";
+        case Status::RequestHeaderFieldsTooLarge: return "Request Header Fields Too Large";
 
         // 5xx
         case Status::InternalServerError: return "Internal Server Error";
@@ -121,6 +125,7 @@ std::string_view reason(Status s) {
         case Status::BadGateway:          return "Bad Gateway";
         case Status::ServiceUnavailable:  return "Service Unavailable";
         case Status::GatewayTimeout:      return "Gateway Timeout";
+        case Status::HTTPVersionNotSupported: return "HTTP Version Not Supported";
         default:                          return "Unknown";
     }
 }
@@ -151,7 +156,25 @@ std::string_view mime_from_ext(std::string_view ext) {
         {".xml",  "application/xml; charset=utf-8"},
         {".pdf",  "application/pdf"},
         {".wasm", "application/wasm"},
-        {".ico",  "image/x-icon"}
+        {".ico",  "image/x-icon"},
+        {".avif", "image/avif"},
+        {".bmp",  "image/bmp"},
+        {".md",   "text/markdown; charset=utf-8"},
+        {".csv",  "text/csv; charset=utf-8"},
+        {".mp3",  "audio/mpeg"},
+        {".ogg",  "audio/ogg"},
+        {".wav",  "audio/wav"},
+        {".mp4",  "video/mp4"},
+        {".webm", "video/webm"},
+        {".woff", "font/woff"},
+        {".woff2","font/woff2"},
+        {".ttf",  "font/ttf"},
+        {".otf",  "font/otf"},
+        {".eot",  "application/vnd.ms-fontobject"},
+        {".zip",  "application/zip"},
+        {".gz",   "application/gzip"},
+        {".tar",  "application/x-tar"},
+        {".map",  "application/json; charset=utf-8"}
     };
 
     // lowercase compare

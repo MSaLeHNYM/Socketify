@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Socketify Static Site</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main>
+    <h1>Socketify</h1>
+    <p>This page is served by the <code>04_static_site</code> example.</p>
+    <ul>
+      <li>Streamed from disk with <code>sendfile(2)</code></li>
+      <li>Compressed with gzip when the browser asks</li>
+      <li>Cached with <code>ETag</code> + <code>Cache-Control</code></li>
+      <li>Unknown paths fall back here (SPA-style)</li>
+    </ul>
+    <p id="path"></p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

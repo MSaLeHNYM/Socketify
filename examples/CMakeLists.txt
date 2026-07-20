@@ -1,0 +1,8 @@
+# Socketify examples — a graded tour from hello world to a full app.
+add_subdirectory(01_hello_world)
+add_subdirectory(02_rest_api)
+add_subdirectory(03_middleware)
+add_subdirectory(04_static_site)
+add_subdirectory(05_sse_chat)
+add_subdirectory(06_https)
+add_subdirectory(07_fullstack)

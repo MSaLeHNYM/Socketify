@@ -1,52 +1,36 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Debug build with sanitizers, tests and examples. CI-friendly.
+#
+# Usage: ./scripts/build_debug.sh [--no-san] [--no-tests] [--examples]
+set -euo pipefail
 
-# Usage:
-#   ./scripts/build_debug.sh [--examples=ON|OFF] [--sudo=ON|OFF] [--prefix=/custom/prefix]
-# Defaults: examples=OFF, sudo=ON, prefix=/usr/local
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${SCRIPT_DIR}/.."
+BUILD_DIR="${ROOT}/build-debug"
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="${SCRIPT_DIR}/.."
-BUILD_DIR="${PROJECT_ROOT}/build-Debug"
-
+SANITIZE="address,undefined"
+TESTS="ON"
 EXAMPLES="OFF"
-USE_SUDO="ON"
-PREFIX="/usr/local"
 
 for arg in "$@"; do
   case "$arg" in
-    --examples=ON|--examples=OFF) EXAMPLES="${arg#*=}";;
-    --sudo=ON|--sudo=OFF)         USE_SUDO="${arg#*=}";;
-    --prefix=*)                    PREFIX="${arg#*=}";;
+    --no-san)   SANITIZE="";;
+    --no-tests) TESTS="OFF";;
+    --examples) EXAMPLES="ON";;
     -h|--help)
-      echo "build_debug.sh [--examples=ON|OFF] [--sudo=ON|OFF] [--prefix=/path]"
+      echo "build_debug.sh [--no-san] [--no-tests] [--examples]"
       exit 0;;
   esac
 done
 
-echo "==> Removing old build directory: ${BUILD_DIR}"
-rm -rf "${BUILD_DIR}"
+cmake -S "${ROOT}" -B "${BUILD_DIR}" \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DSOCKETIFY_BUILD_TESTS="${TESTS}" \
+    -DSOCKETIFY_BUILD_EXAMPLES="${EXAMPLES}" \
+    -DSOCKETIFY_SANITIZE="${SANITIZE}"
 
-echo "==> Creating build directory"
-mkdir -p "${BUILD_DIR}"
-cd "${BUILD_DIR}"
+cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
-echo "==> Configuring (Debug)  examples=${EXAMPLES}  prefix=${PREFIX}"
-cmake -DCMAKE_BUILD_TYPE=Debug \
-      -DSOCKETIFY_BUILD_EXAMPLES=${EXAMPLES} \
-      -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-      ..
-
-echo "==> Building with $(nproc) cores"
-cmake --build . -j"$(nproc)"
-
-echo "==> Installing to ${PREFIX}"
-if [ "${USE_SUDO}" = "ON" ] && [ "${PREFIX}" = "/usr/local" ]; then
-  sudo cmake --install .
-else
-  cmake --install .
+if [ "${TESTS}" = "ON" ]; then
+  ctest --test-dir "${BUILD_DIR}" --output-on-failure
 fi
-
-echo "==> Done."
-
-#sudo bash scripts/build_debug.sh --examples=ON

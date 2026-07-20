@@ -1,10 +1,22 @@
 #pragma once
-// socketify/static_files.h — Serve static files (v1)
+/**
+ * @file static_files.h
+ * @brief Static file serving middleware with caching, ranges and streaming.
+ *
+ * Files are streamed with sendfile(2) on plain sockets (no in-memory copy)
+ * and support ETag/Last-Modified conditional requests plus single Range
+ * requests.
+ *
+ * @code
+ * server.Use(static_files::serve("public", {.mount = "/assets",
+ *                                           .cache_max_age = 3600}));
+ * @endcode
+ */
 
 #include "socketify/http.h"
+#include "socketify/middleware.h"
 #include "socketify/request.h"
 #include "socketify/response.h"
-#include "socketify/router.h"
 
 #include <string>
 #include <string_view>
@@ -12,6 +24,7 @@
 
 namespace socketify::static_files {
 
+/** @brief Static file middleware configuration. */
 struct Options {
     // Filesystem root to serve from. REQUIRED (we also expose a factory overload that fills this).
     std::string root;
@@ -45,10 +58,10 @@ struct Options {
     // Content-Type detection is built-in (by file extension).
 };
 
-// Create middleware with explicit options (opts.root must be set).
+/** @brief Create the middleware; @p opts.root must be set. */
 Middleware serve(Options opts);
 
-// Convenience: pass (root, options-without-root)
+/** @brief Convenience overload: serve(root, other-options). */
 inline Middleware serve(const std::string& root, Options opts = {}) {
     Options o = std::move(opts);
     o.root = root;

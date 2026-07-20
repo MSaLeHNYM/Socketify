@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(Socketify
-    VERSION 0.1.0
-    DESCRIPTION "Socketify: a lightweight C++ HTTP/HTTPS server & routing library"
+    VERSION 0.2.0
+    DESCRIPTION "Socketify: a fast, modern C++20 HTTP/HTTPS server & routing framework"
+    HOMEPAGE_URL "https://github.com/yourname/socketify"
     LANGUAGES CXX
 )
 
@@ -10,10 +11,9 @@ project(Socketify
 # Options
 # ---------------------------
 option(SOCKETIFY_WITH_TLS "Enable HTTPS (OpenSSL)" ON)
-option(SOCKETIFY_WITH_BROTLI "Enable Brotli compression (not used in v1)" OFF)
-# Default OFF to avoid linking empty examples with no main()
 option(SOCKETIFY_BUILD_EXAMPLES "Build examples" OFF)
 option(SOCKETIFY_BUILD_TESTS "Build tests" OFF)
+option(SOCKETIFY_BUILD_DOCS "Add a 'docs' target (requires Doxygen)" OFF)
 
 # Respect BUILD_SHARED_LIBS (default static)
 if(NOT DEFINED BUILD_SHARED_LIBS)
@@ -27,13 +27,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/cmake/SocketifyWarnings.cmake")
-    include("${CMAKE_CURRENT_LIST_DIR}/cmake/SocketifyWarnings.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/SocketifyWarnings.cmake")
 
 # ---------------------------
 # Dependencies
 # ---------------------------
+find_package(Threads REQUIRED)
 find_package(nlohmann_json 3.11 REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -45,6 +44,7 @@ endif()
 # Sources / Headers
 # ---------------------------
 set(SOCKETIFY_PUBLIC_HEADERS
+    include/socketify/socketify.h
     include/socketify/http.h
     include/socketify/server.h
     include/socketify/request.h
@@ -67,10 +67,11 @@ set(SOCKETIFY_PUBLIC_HEADERS
     include/socketify/detail/buffer.h
     include/socketify/detail/file_io.h
     include/socketify/detail/utils.h
+    include/socketify/detail/sse_impl.h
 )
 
 set(SOCKETIFY_SOURCES
-    src/http.cpp                # <-- ADDED: implement http.h
+    src/http.cpp
     src/server.cpp
     src/router.cpp
     src/request.cpp
@@ -89,14 +90,15 @@ set(SOCKETIFY_SOURCES
     src/detail/loop_epoll.cpp
     src/detail/socket_posix.cpp
     src/detail/http_parser_sm.cpp
-    src/detail/buffer.cpp
     src/detail/file_io_posix.cpp
+    src/detail/utils.cpp
 )
 
 # ---------------------------
 # Library Target
 # ---------------------------
 add_library(socketify ${SOCKETIFY_SOURCES} ${SOCKETIFY_PUBLIC_HEADERS})
+add_library(Socketify::socketify ALIAS socketify)
 
 target_include_directories(socketify
     PUBLIC
@@ -112,6 +114,7 @@ target_link_libraries(socketify
     PUBLIC
         nlohmann_json::nlohmann_json
         ZLIB::ZLIB
+        Threads::Threads
 )
 
 if(SOCKETIFY_WITH_TLS)
@@ -121,39 +124,15 @@ else()
     target_compile_definitions(socketify PUBLIC SOCKETIFY_HAS_TLS=0)
 endif()
 
-if(MSVC)
-    target_compile_options(socketify PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(socketify PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-add_library(Socketify::socketify ALIAS socketify)
+socketify_set_warnings(socketify)
+socketify_enable_sanitizers(socketify)
 
 # ---------------------------
 # Examples (optional)
 # ---------------------------
 if(SOCKETIFY_BUILD_EXAMPLES)
-    # Build flat examples if the files exist
-    foreach(_ex minimal_api json_echo static_server)
-        if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/examples/${_ex}.cpp")
-            add_executable(${_ex} "examples/${_ex}.cpp")
-            target_link_libraries(${_ex} PRIVATE Socketify::socketify)
-        endif()
-    endforeach()
-
-    # Build EVERY subdirectory in examples/ that contains a CMakeLists.txt
-    file(GLOB _example_subdirs LIST_DIRECTORIES true "${CMAKE_CURRENT_LIST_DIR}/examples/*")
-    foreach(_dir ${_example_subdirs})
-        if(IS_DIRECTORY "${_dir}" AND EXISTS "${_dir}/CMakeLists.txt")
-            # Derive a nice name like "examples/HelloWorld"
-            file(RELATIVE_PATH _reldir "${CMAKE_CURRENT_LIST_DIR}" "${_dir}")
-            message(STATUS "Adding example subdir: ${_reldir}")
-            add_subdirectory("${_dir}")
-        endif()
-    endforeach()
+    add_subdirectory(examples)
 endif()
-
-
 
 # ---------------------------
 # Tests (optional)
@@ -161,6 +140,23 @@ endif()
 if(SOCKETIFY_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# ---------------------------
+# Docs (optional)
+# ---------------------------
+if(SOCKETIFY_BUILD_DOCS)
+    find_package(Doxygen)
+    if(DOXYGEN_FOUND)
+        add_custom_target(docs
+            COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/docs/Doxyfile
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM
+        )
+    else()
+        message(WARNING "SOCKETIFY_BUILD_DOCS=ON but Doxygen was not found")
+    endif()
 endif()
 
 # ---------------------------
@@ -198,15 +194,8 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion
 )
 
-set(_SOCKETIFY_CONFIG_IN "${CMAKE_CURRENT_BINARY_DIR}/SocketifyConfig.cmake.in")
-file(WRITE "${_SOCKETIFY_CONFIG_IN}"
-"@PACKAGE_INIT@
-include(\"\${CMAKE_CURRENT_LIST_DIR}/SocketifyTargets.cmake\")
-check_required_components(Socketify)
-")
-
 configure_package_config_file(
-    "${_SOCKETIFY_CONFIG_IN}"
+    "${CMAKE_CURRENT_LIST_DIR}/packaging/SocketifyConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/SocketifyConfig.cmake"
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
 )
@@ -218,31 +207,10 @@ install(FILES
 )
 
 message(STATUS "== Socketify ${PROJECT_VERSION} ==")
-message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Build type:  ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Shared libs: ${BUILD_SHARED_LIBS}")
-message(STATUS "  TLS: ${SOCKETIFY_WITH_TLS}")
-message(STATUS "  Examples: ${SOCKETIFY_BUILD_EXAMPLES}")
-message(STATUS "  Tests: ${SOCKETIFY_BUILD_TESTS}")
-
-#sudo apt update
-#sudo apt install -y build-essential cmake libssl-dev zlib1g-dev nlohmann-json3-dev
-
-# Build static lib (default), with TLS, and examples:
-#cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-
-# Build shared lib (.so) without TLS and without examples:
-#cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-#      -DBUILD_SHARED_LIBS=ON \
-#      -DSOCKETIFY_WITH_TLS=OFF \
-#      -DSOCKETIFY_BUILD_EXAMPLES=OFF
-
-# Build tests too:
-#cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSOCKETIFY_BUILD_TESTS=ON
-
-
-# Install to /usr/local
-#sudo cmake --install build
-
-# Use from another project:
-#   find_package(Socketify REQUIRED)
-#   target_link_libraries(your_app PRIVATE Socketify::socketify)
+message(STATUS "  TLS:         ${SOCKETIFY_WITH_TLS}")
+message(STATUS "  Examples:    ${SOCKETIFY_BUILD_EXAMPLES}")
+message(STATUS "  Tests:       ${SOCKETIFY_BUILD_TESTS}")
+message(STATUS "  Docs:        ${SOCKETIFY_BUILD_DOCS}")
+message(STATUS "  Sanitizers:  ${SOCKETIFY_SANITIZE}")

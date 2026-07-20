@@ -1,0 +1,74 @@
+# Doxyfile for Socketify — run from the repository root:
+#   doxygen docs/Doxyfile
+# or via CMake:
+#   cmake -B build -DSOCKETIFY_BUILD_DOCS=ON && cmake --build build --target docs
+
+# --- Project ---------------------------------------------------------------
+PROJECT_NAME           = "Socketify"
+PROJECT_NUMBER         = 0.2.0
+PROJECT_BRIEF          = "A fast, modern C++20 HTTP/HTTPS server & routing framework"
+OUTPUT_DIRECTORY       = docs/generated
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = YES
+OUTPUT_LANGUAGE        = English
+
+# --- Input -----------------------------------------------------------------
+# API.md uses GitHub-flavored anchors, so it is linked from README rather
+# than processed by Doxygen.
+INPUT                  = include/socketify \
+                         README.md
+FILE_PATTERNS          = *.h *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */detail/*
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# --- Extraction ------------------------------------------------------------
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+HIDE_UNDOC_MEMBERS     = NO
+INTERNAL_DOCS          = NO
+SHOW_INCLUDE_FILES     = YES
+SORT_MEMBER_DOCS       = NO
+GENERATE_TODOLIST      = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+
+# --- Build behaviour -------------------------------------------------------
+BUILTIN_STL_SUPPORT    = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+DISTRIBUTE_GROUP_DOC   = YES
+INLINE_SIMPLE_STRUCTS  = YES
+PREDEFINED             = SOCKETIFY_HAS_TLS=1
+
+# --- HTML output -----------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_COLORSTYLE        = AUTO_LIGHT
+HTML_DYNAMIC_SECTIONS  = YES
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+SEARCHENGINE           = YES
+
+# --- Other outputs ---------------------------------------------------------
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+
+# --- Diagrams --------------------------------------------------------------
+# Set HAVE_DOT = YES when graphviz is installed for class/include diagrams.
+HAVE_DOT               = NO
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = NO
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+DOT_MULTI_TARGETS      = YES
+
+# --- Warnings --------------------------------------------------------------
+QUIET                  = YES
+WARNINGS               = YES
+WARN_AS_ERROR          = NO

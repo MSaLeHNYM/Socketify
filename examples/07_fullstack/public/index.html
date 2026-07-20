@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Socketify Guestbook</title>
+  <style>
+    body{font-family:system-ui;max-width:42rem;margin:2rem auto;padding:0 1rem;line-height:1.5}
+    #entries{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0}
+    .entry{border:1px solid #8884;border-radius:8px;padding:.6rem .9rem}
+    .entry b{margin-right:.5rem}
+    form{display:flex;gap:.5rem;flex-wrap:wrap}
+    input{padding:.5rem;border-radius:6px;border:1px solid #8886}
+    #name{width:10rem}#message{flex:1}
+    button{padding:.5rem 1rem;border-radius:6px;border:none;background:#4a7dff;color:#fff}
+  </style>
+</head>
+<body>
+  <h1>Guestbook</h1>
+  <p>Entries appear live in every open tab (SSE). Your name is remembered in a signed session cookie.</p>
+  <form id="f">
+    <input id="name" placeholder="name (optional)">
+    <input id="message" placeholder="leave a message" required>
+    <button>Post</button>
+  </form>
+  <div id="entries"></div>
+  <script>
+    const entries = document.getElementById('entries');
+    const render = e => {
+      const div = document.createElement('div');
+      div.className = 'entry';
+      const b = document.createElement('b'); b.textContent = e.name;
+      div.appendChild(b);
+      div.appendChild(document.createTextNode(e.message));
+      entries.prepend(div);
+    };
+
+    fetch('/api/entries').then(r => r.json()).then(list => list.forEach(render));
+    fetch('/api/me').then(r => r.json()).then(me => {
+      if (me.name && me.name !== 'anonymous') document.getElementById('name').value = me.name;
+    });
+
+    new EventSource('/events').addEventListener('entry', e => render(JSON.parse(e.data)));
+
+    document.getElementById('f').onsubmit = async e => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const message = document.getElementById('message').value;
+      await fetch('/api/entries', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, message})
+      });
+      document.getElementById('message').value = '';
+    };
+  </script>
+</body>
+</html>

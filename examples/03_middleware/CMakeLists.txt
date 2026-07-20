@@ -1,0 +1,2 @@
+add_executable(example_03_middleware main.cpp)
+target_link_libraries(example_03_middleware PRIVATE Socketify::socketify)

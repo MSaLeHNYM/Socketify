@@ -1,10 +1,20 @@
 #pragma once
-// socketify/cors.h — CORS middleware (preflight + simple requests)
+/**
+ * @file cors.h
+ * @brief Cross-Origin Resource Sharing middleware (preflight + simple requests).
+ *
+ * @code
+ * cors::CorsOptions co;
+ * co.allow_origin = "https://app.example.com";
+ * co.allow_credentials = true;
+ * server.Use(cors::middleware(co));
+ * @endcode
+ */
 
 #include "socketify/http.h"
+#include "socketify/middleware.h"
 #include "socketify/request.h"
 #include "socketify/response.h"
-#include "socketify/router.h"
 
 #include <functional>
 #include <string>
@@ -13,6 +23,7 @@
 
 namespace socketify::cors {
 
+/** @brief CORS policy configuration. */
 struct CorsOptions {
     // Allow origin policy:
     //  - "*" (wildcard): sets Access-Control-Allow-Origin: * (not with credentials)
@@ -47,7 +58,7 @@ struct CorsOptions {
     bool preflight_continue{false};
 };
 
-// Factory producing a Middleware you can `Use(...)`
+/** @brief Create the CORS middleware from @p opts. */
 Middleware middleware(CorsOptions opts = {});
 
 } // namespace socketify::cors

@@ -53,30 +53,31 @@ static inline bool origin_allowed(const std::string& request_origin,
     set_vary_origin = false;
 
     if (request_origin.empty()) return false; // no CORS
-    if (o.allow_origin == "*") {
-        if (!o.allow_credentials) {
-            out_value = "*";
-            return true;
-        }
-        // With credentials, browsers reject wildcard. We’ll reflect origin if requested.
-        if (o.reflect_origin) {
-            out_value = request_origin;
-            set_vary_origin = true;
-            return true;
-        }
-        // If not reflect, and credentials requested, we cannot safely set "*".
-        // Return false so no header is sent; browser will block.
-        return false;
-    }
 
+    // Reflection takes precedence: echo the caller's origin.
     if (o.reflect_origin) {
         out_value = request_origin;
         set_vary_origin = true;
         return true;
     }
 
-    // exact string allow_origin
+    if (o.allow_origin == "*") {
+        if (!o.allow_credentials) {
+            out_value = "*";
+            return true;
+        }
+        // With credentials, browsers reject the wildcard; without
+        // reflection we cannot safely set a value, so omit the header.
+        return false;
+    }
+
+    // Exact allow_origin: only allowed when the request Origin matches.
+    if (to_lower(request_origin) != to_lower(o.allow_origin)) {
+        set_vary_origin = true; // response depends on Origin either way
+        return false;
+    }
     out_value = o.allow_origin;
+    set_vary_origin = true;
     return true;
 }
 

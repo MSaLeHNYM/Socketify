@@ -1,0 +1,2 @@
+add_executable(example_01_hello_world main.cpp)
+target_link_libraries(example_01_hello_world PRIVATE Socketify::socketify)

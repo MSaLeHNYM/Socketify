@@ -1,21 +1,119 @@
-MIT License
+Socketify Source-Available License
+Copyright (c) 2025–2026 M SaLeH NYM <saleh.ue4@gmail.com>
+All rights reserved.
 
-Copyright (c) 2025 M SaLeH NYM
+================================================================================
+SUMMARY (non-binding — the terms below control)
+================================================================================
+  YOU MAY:    use Socketify as a library to build and ship your own applications.
+  YOU MAY NOT: modify, fork, or redistribute modified copies of Socketify itself
+              without prior written permission from the copyright holder.
+  TO CONTRIBUTE: contact the copyright holder and obtain permission first.
+  COPYRIGHT:  all copyright and legal ownership of this software remain exclusively
+              with M SaLeH NYM.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+================================================================================
+1. DEFINITIONS
+================================================================================
+  "Software" means the Socketify source code, headers, documentation, examples,
+  build scripts, and any accompanying materials in this repository.
+  "You" means any individual or legal entity exercising permissions under this
+  license.
+  "Copyright Holder" means M SaLeH NYM.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+================================================================================
+2. GRANT OF USE (APPLICATIONS)
+================================================================================
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of the Software, to USE the Software as a library or dependency in order to
+  develop, build, run, test, and distribute YOUR OWN applications that link
+  against or include the Software (unmodified), subject to the conditions in
+  Sections 3–7.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  This grant covers:
+    - compiling and linking against the Software;
+    - shipping binaries of your applications that statically or dynamically
+      link the Software (provided the Software itself remains unmodified);
+    - private evaluation, learning, and internal use of the Software.
+
+================================================================================
+3. RESTRICTIONS — MODIFICATION AND DERIVATIVE WORKS
+================================================================================
+  You may NOT, without prior written permission from the Copyright Holder:
+
+    a) modify, adapt, translate, or create derivative works of the Software;
+    b) remove, alter, or obscure any copyright, license, or attribution notices;
+    c) redistribute the Software, or any modified version of it, as a standalone
+       library, framework, or competing product;
+    d) publicly fork the repository for the purpose of distributing changed
+       versions of the Software.
+
+  Exception: local, private patches you apply only on your machines for your
+  own applications are allowed, provided you do not redistribute those patches
+  or the modified Software to others.
+
+================================================================================
+4. CONTRIBUTIONS
+================================================================================
+  Contributions (pull requests, patches, ideas submitted for inclusion in the
+  Software) are welcome ONLY after you contact the Copyright Holder and receive
+  explicit written permission to contribute.
+
+  Contact: saleh.ue4@gmail.com
+
+  By submitting an approved contribution, you assign and transfer to the
+  Copyright Holder all right, title, and interest (including copyright) in that
+  contribution, worldwide, for the full term of protection, so that the
+  Copyright Holder remains the sole owner of the Software. If assignment is not
+  legally effective in your jurisdiction, you grant the Copyright Holder an
+  exclusive, irrevocable, royalty-free, worldwide license to use, modify,
+  sublicense, and commercialize the contribution as part of the Software.
+
+================================================================================
+5. OWNERSHIP
+================================================================================
+  The Software is and remains the exclusive property of the Copyright Holder.
+  All copyright, moral rights (to the extent waivable), patents (to the extent
+  embodied in the Software), trademarks, and other intellectual property rights
+  in the Software belong solely to the Copyright Holder.
+
+  No ownership interest in the Software is transferred to You by this license.
+  Your applications remain yours; the Software remains the Copyright Holder's.
+
+================================================================================
+6. ATTRIBUTION
+================================================================================
+  You must retain the following notice in any substantial portion of the
+  Software that you redistribute in binary or source form as permitted herein:
+
+    Copyright (c) 2025–2026 M SaLeH NYM. All rights reserved.
+    Socketify — licensed under the Socketify Source-Available License.
+    See LICENSE for terms.
+
+================================================================================
+7. NO WARRANTY / LIMITATION OF LIABILITY
+================================================================================
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+  IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+================================================================================
+8. TERMINATION
+================================================================================
+  This license terminates automatically if You breach any of its terms.
+  Upon termination You must cease all use and distribution of the Software
+  (except that already-distributed binary applications of yours that linked
+  an unmodified copy may continue to operate). Sections 5 and 7 survive
+  termination.
+
+================================================================================
+9. CONTACT
+================================================================================
+  For permission to modify the Software, redistribute derivatives, or
+  contribute changes:
+
+    M SaLeH NYM
+    Email: saleh.ue4@gmail.com

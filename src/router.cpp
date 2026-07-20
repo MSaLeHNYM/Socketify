@@ -1,28 +1,19 @@
+/**
+ * @file router.cpp
+ * @brief Pattern compilation, path matching and dispatch chain execution.
+ */
+
 #include "socketify/router.h"
+#include "socketify/detail/utils.h"
 
 #include <algorithm>
 #include <cassert>
 
 namespace socketify {
 
-// ---------- Router helpers ----------
-static inline char ascii_lower(char c) {
-    unsigned char uc = static_cast<unsigned char>(c);
-    if (uc >= 'A' && uc <= 'Z') return static_cast<char>(uc - 'A' + 'a');
-    return static_cast<char>(uc);
-}
-static inline bool iequal_ascii(std::string_view a, std::string_view b) {
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (ascii_lower(a[i]) != ascii_lower(b[i])) return false;
-    }
-    return true;
-}
-
 std::vector<Route::Seg> Router::compile_pattern_(std::string_view pattern) {
     std::vector<Route::Seg> segs;
     if (pattern.empty()) {
-        // Treat empty as "/"
         return segs; // empty segs means root
     }
 
@@ -63,17 +54,29 @@ bool Router::starts_with_(std::string_view s, std::string_view pfx) {
     return s.size() >= pfx.size() && std::equal(pfx.begin(), pfx.end(), s.begin());
 }
 
-// Match `path` against compiled `segs`. If matched, fill req.params().
+// True when `pattern` falls under group prefix `pfx` at a path boundary,
+// i.e. "/api" matches "/api" and "/api/x" but not "/apiv2".
+static bool prefix_matches_(std::string_view pattern, std::string_view pfx) {
+    if (pfx.empty() || pfx == "/") return true;
+    if (pfx.back() == '/') pfx.remove_suffix(1);
+    if (!Router::starts_with_public_(pattern, pfx)) return false;
+    return pattern.size() == pfx.size() || pattern[pfx.size()] == '/';
+}
+
+bool Router::starts_with_public_(std::string_view s, std::string_view pfx) {
+    return starts_with_(s, pfx);
+}
+
+// Match `path` against compiled `segs`. If matched, fill params.
 bool Router::match_and_bind_(std::string_view path,
                              const std::vector<Route::Seg>& segs,
-                             Request& req) {
+                             ParamMap& params) {
     // Root pattern (empty segs) matches only "/" or "".
     if (segs.empty()) {
         return path == "/" || path.empty();
     }
 
     auto parts = split_path_(path);
-    auto& params = const_cast<ParamMap&>(req.params());
     params.clear();
 
     size_t i = 0, j = 0;
@@ -81,7 +84,7 @@ bool Router::match_and_bind_(std::string_view path,
         const auto& seg = segs[j];
         switch (seg.kind) {
             case Route::Seg::Static:
-                if (!iequal_ascii(parts[i], seg.text)) return false;
+                if (parts[i] != seg.text) return false;
                 ++i; ++j;
                 break;
             case Route::Seg::Param:
@@ -117,6 +120,7 @@ bool Router::dispatch(Request& req, Response& res) const {
     // Build a chain of GLOBAL middleware only, and let a terminal lambda
     // perform route lookup + per-route middleware + handler.
     size_t idx = 0;
+    bool handled = false;
 
     std::function<void()> next;
     next = [&]() {
@@ -136,27 +140,33 @@ bool Router::dispatch(Request& req, Response& res) const {
 
         bool path_matched_any = false;
         std::vector<Method> allowed;
+        ParamMap bound;
 
         for (const auto& r : routes_) {
-            Request temp = req;
-            if (!match_and_bind_(path, r.segs_, temp)) continue;
+            ParamMap candidate;
+            if (!match_and_bind_(path, r.segs_, candidate)) continue;
 
             path_matched_any = true;
 
-            if (r.method() == Method::ANY || r.method() == method) {
-                const_cast<ParamMap&>(req.params()) = const_cast<ParamMap&>(temp.params());
+            const bool method_ok =
+                r.method() == Method::ANY || r.method() == method ||
+                // HEAD falls back to GET handlers (body is stripped later).
+                (method == Method::HEAD && r.method() == Method::GET);
+
+            if (method_ok) {
+                bound = std::move(candidate);
                 matched = &r;
                 break;
-            } else {
-                if (r.method() != Method::UNKNOWN && r.method() != Method::ANY) {
-                    allowed.push_back(r.method());
-                }
+            }
+            if (r.method() != Method::UNKNOWN && r.method() != Method::ANY) {
+                allowed.push_back(r.method());
             }
         }
 
         if (!matched) {
             if (path_matched_any) {
-                std::sort(allowed.begin(), allowed.end(), [](Method a, Method b){ return static_cast<int>(a) < static_cast<int>(b); });
+                std::sort(allowed.begin(), allowed.end(),
+                          [](Method a, Method b){ return static_cast<int>(a) < static_cast<int>(b); });
                 allowed.erase(std::unique(allowed.begin(), allowed.end()), allowed.end());
 
                 if (std::find(allowed.begin(), allowed.end(), Method::GET) != allowed.end() &&
@@ -170,34 +180,39 @@ bool Router::dispatch(Request& req, Response& res) const {
                     allow_header.append(std::string(to_string(allowed[i])));
                 }
 
+                handled = true;
                 res.status(Status::MethodNotAllowed)
                    .set_header("Allow", allow_header)
                    .send("Method Not Allowed\n");
                 return;
             }
-            // no route at all → let caller send 404
+            // no route at all -> let caller send 404
             return;
         }
 
+        req.mutable_params() = std::move(bound);
+        handled = true;
+
         // Build chain: group MWs + route MWs + final handler
-        std::vector<Middleware> chain;
+        std::vector<const Middleware*> chain;
         for (const auto& g : groups_) {
-            if (starts_with_(matched->pattern(), g.prefix())) {
-                for (const auto& mw : g.middlewares()) chain.push_back(mw);
+            if (prefix_matches_(matched->pattern(), g.prefix())) {
+                for (const auto& mw : g.middlewares()) chain.push_back(&mw);
             }
         }
-        for (const auto& mw : matched->middlewares()) chain.push_back(mw);
+        for (const auto& mw : matched->middlewares()) chain.push_back(&mw);
 
-        chain.push_back([matched](Request& rq, Response& rs, Next){
+        const Middleware handler_stage = [matched](Request& rq, Response& rs, Next){
             matched->handler()(rq, rs);
-        });
+        };
+        chain.push_back(&handler_stage);
 
         // Execute per-route chain
         size_t j = 0;
         std::function<void()> step;
         step = [&]() {
             if (j >= chain.size() || res.ended()) return;
-            auto& mw = chain[j++];
+            const auto& mw = *chain[j++];
             mw(req, res, step);
         };
         step();
@@ -206,8 +221,8 @@ bool Router::dispatch(Request& req, Response& res) const {
     // Kick off global chain
     next();
 
-    // Return true if response ended (middleware or route handled)
-    return res.ended();
+    // Handled when a route/405 ran, or some middleware ended the response.
+    return handled || res.ended();
 }
 
 } // namespace socketify
