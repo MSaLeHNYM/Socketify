@@ -3,9 +3,12 @@
  * @file logging.h
  * @brief Leveled logger and request-logging middleware.
  *
+ * Severity ladder (least → most): Trace < Debug < Info < Warn < Error < Fatal.
+ * `set_level` sets the minimum emitted severity (default Info).
+ *
  * @code
  * logging::set_level(logging::Level::Debug);
- * server.Use(logging::middleware());          // "GET /api/x 200 1.2ms 34B"
+ * server.Use(logging::middleware());          // "127.0.0.1 GET /api/x 200 1.2ms 34B"
  *
  * logging::info("listening on :{}", 8080);    // printf-free formatting
  * @endcode
@@ -20,8 +23,20 @@
 
 namespace socketify::logging {
 
-/** @brief Log severities, lowest to highest. */
-enum class Level { Trace, Debug, Info, Warn, Error, Off };
+/**
+ * @brief Log severities, lowest to highest.
+ *
+ * | Level | Use when |
+ * |-------|----------|
+ * | Trace | Fine-grained execution (middleware hops, parse steps) |
+ * | Debug | Diagnostics (extra request fields, handshake detail) |
+ * | Info  | Normal operations (successful requests, server start) |
+ * | Warn  | Unexpected but recoverable (4xx, rate-limit, soft failures) |
+ * | Error | Failed operations (5xx, bind/TLS errors that don't exit) |
+ * | Fatal | Process-ending failure (unrecoverable startup before exit) |
+ * | Off   | Disable all logging |
+ */
+enum class Level { Trace, Debug, Info, Warn, Error, Fatal, Off };
 
 /** @brief Sink invoked for every emitted record (already formatted). */
 using Sink = std::function<void(Level, std::string_view message)>;
@@ -92,23 +107,33 @@ template <typename... Args>
 void error(std::string_view pattern, const Args&... args) {
     if (level() <= Level::Error) log(Level::Error, fmt_detail::format(pattern, args...));
 }
+/** @brief Log at Fatal level (process-ending conditions). */
+template <typename... Args>
+void fatal(std::string_view pattern, const Args&... args) {
+    if (level() <= Level::Fatal) log(Level::Fatal, fmt_detail::format(pattern, args...));
+}
 
 /** @brief Request-log middleware configuration. */
 struct Options {
     /**
      * @brief Format style:
-     *  - "dev": `GET /path 200 1.234ms 56B` (default)
+     *  - "dev": `127.0.0.1 GET /path 200 1.234ms 56B` (default; always includes IP)
      *  - "common": Apache common-log style with client IP and timestamp.
      */
     std::string format{"dev"};
-    /** @brief Level used for the records (default Info). */
-    Level log_level{Level::Info};
+    /**
+     * @brief When true, use the first hop of `X-Forwarded-For` as the client IP
+     *        (for reverse proxies). Default false — use the socket peer address.
+     */
+    bool trust_proxy{false};
 };
 
 /**
  * @brief Middleware that logs each request after the handler finishes.
  *
- * Records method, path, status, handler duration and response size.
+ * Always includes client IP. Level is chosen from status:
+ * 2xx/3xx → Info, 4xx → Warn, 5xx → Error (still filtered by `set_level`).
+ * At Debug threshold or below, appends request-id and truncated User-Agent.
  */
 Middleware middleware(Options opts = {});
 

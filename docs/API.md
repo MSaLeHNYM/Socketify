@@ -201,13 +201,37 @@ group, then per-route.
 
 ### Logging
 
+Severity ladder (least → most). `set_level` sets the minimum emitted level (default Info):
+
+| Level | Role |
+|-------|------|
+| `Trace` | Fine-grained execution (middleware hops, parse steps) |
+| `Debug` | Diagnostics (extra request fields, handshake detail) |
+| `Info` | Normal operations (successful requests, server start) |
+| `Warn` | Unexpected but recoverable (4xx, rate-limit, soft failures) |
+| `Error` | Failed operations (5xx, bind/TLS errors that don't exit) |
+| `Fatal` | Process-ending failure (unrecoverable startup before exit) |
+| `Off` | Disable all logging |
+
 ```cpp
 logging::set_level(logging::Level::Debug);
 logging::info("listening on {}", port);       // {} placeholders
+logging::fatal("cannot bind: {}", err);
 logging::set_sink([](logging::Level, std::string_view line) {
     /* ship to your aggregator */
 });
 ```
+
+Request middleware (`logging::middleware()`) emits one access line per request.
+Client IP is always included. Level follows HTTP status: 2xx/3xx → Info,
+4xx → Warn, 5xx → Error (still filtered by `set_level`).
+
+```
+127.0.0.1 GET /api/x 200 1.2ms 34B          # default "dev" format
+```
+
+Optional `Options::trust_proxy` uses the first `X-Forwarded-For` hop.
+At Debug threshold or below, the line also appends `rid=` / truncated `ua=`.
 
 ## Sessions
 

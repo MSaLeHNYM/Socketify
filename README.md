@@ -65,7 +65,7 @@ int main() {
   streaming/chunked responses, redirects
 - **Static files** — zero-copy `sendfile(2)`, ETag/Last-Modified,
   Range requests, directory indexes, SPA fallthrough
-- **Middleware built-ins** — request logging, request IDs, CORS,
+- **Middleware built-ins** — request logging (IP + status-aware levels), request IDs, CORS,
   token-bucket rate limiting (`RateLimit-*` headers), gzip/deflate
   compression, body-size limits
 - **Sessions** — pluggable manager: server store, signed cookie, or JWT

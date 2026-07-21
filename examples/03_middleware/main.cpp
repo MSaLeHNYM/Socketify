@@ -17,7 +17,8 @@ using namespace socketify;
 int main() {
     Server server;
 
-    // 1. Request logging ("GET / 200 0.1ms 13B" on stderr).
+    // 1. Request logging ("127.0.0.1 GET / 200 0.1ms 13B" on stderr).
+    //    2xx/3xx → Info, 4xx → Warn, 5xx → Error.
     logging::set_level(logging::Level::Debug);
     server.Use(logging::middleware());
 
