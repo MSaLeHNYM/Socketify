@@ -53,14 +53,11 @@ Database Database::open(const Mongo& opts) {
     return db;
 }
 
-void Database::exec(std::string_view sql, const Params& params) {
+std::int64_t Database::exec(std::string_view sql, const Params& params) {
     ensure_sql_();
-    if (tls_engine) {
-        tls_engine->exec(sql, params);
-        return;
-    }
+    if (tls_engine) return tls_engine->exec(sql, params);
     auto lease = pool_->acquire();
-    lease->exec(sql, params);
+    return lease->exec(sql, params);
 }
 
 Rows Database::query(std::string_view sql, const Params& params) {

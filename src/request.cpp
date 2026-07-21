@@ -26,4 +26,11 @@ std::string_view Request::query_value(std::string_view key) const {
     return it->second;
 }
 
+std::optional<nlohmann::json> Request::json() const {
+    if (body_.empty()) return std::nullopt;
+    auto j = nlohmann::json::parse(body_, /*cb=*/nullptr, /*allow_exceptions=*/false);
+    if (j.is_discarded()) return std::nullopt;
+    return j;
+}
+
 } // namespace socketify

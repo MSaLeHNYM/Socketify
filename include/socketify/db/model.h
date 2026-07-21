@@ -16,6 +16,11 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <ctime>
+#include <cstdio>
+#include <chrono>
+#include <thread>
+#include <unordered_set>
 #include <vector>
 
 namespace socketify::db {
@@ -23,6 +28,7 @@ namespace socketify::db {
 class Record {
 public:
     Record() = default;
+    virtual ~Record() = default;
     Record(Database* db, std::string table, Row attrs)
         : db_(db), table_(std::move(table)), attrs_(std::move(attrs)) {}
 
@@ -50,20 +56,27 @@ public:
     void set(std::string_view key, nlohmann::json value) {
         attrs_[std::string(key)] = std::move(value);
         dirty_ = true;
+        dirty_keys_.insert(std::string(key));
     }
 
-    void update(const Row& patch);
-    bool save();
-    bool destroy();
+    virtual void update(const Row& patch);
+    virtual bool save();
+    virtual bool destroy();
 
     /** @brief Load related rows by association name (see Model::boot relations). */
     Rows related(std::string_view name);
 
 protected:
+    /** @brief Persist UPDATE for dirty columns (used by Model::save). */
+    std::int64_t persist_update_(const Row& patch);
+    /** @brief Persist DELETE (used by Model::destroy). */
+    std::int64_t persist_destroy_();
+
     Database* db_{nullptr};
     std::string table_;
     Row attrs_ = Row::object();
     bool dirty_{false};
+    std::unordered_set<std::string> dirty_keys_;
 };
 
 using HookFn = std::function<void(Record&)>;
@@ -174,21 +187,11 @@ public:
         }
         for (auto& h : meta().before_create) h(*rec);
         for (auto& h : meta().before_save) h(*rec);
-
-        // timestamps
-        auto schema = Derived::schema();
-        bool has_created = false, has_updated = false;
-        for (auto& c : schema.columns()) {
-            if (c.name == "created_at") has_created = true;
-            if (c.name == "updated_at") has_updated = true;
-        }
-        // Insert via query builder helpers in model.cpp style
+        rec->stamp_timestamps_for_create_();
         rec->persist_insert_();
 
         for (auto& h : meta().after_create) h(*rec);
         for (auto& h : meta().after_save) h(*rec);
-        (void)has_created;
-        (void)has_updated;
         return rec;
     }
 
@@ -228,15 +231,67 @@ public:
         return out;
     }
 
+    void update(const Row& patch) override {
+        ensure_boot();
+        for (auto it = patch.begin(); it != patch.end(); ++it) set(it.key(), it.value());
+        save();
+    }
+
+    bool save() override {
+        ensure_boot();
+        if (!db_) throw Error("record has no database");
+        auto idv = attrs_.contains("id") ? attrs_["id"] : nlohmann::json{};
+        if (idv.is_null() || (idv.is_number() && idv.get<std::int64_t>() == 0)) {
+            throw Error("cannot save record without id — use Model::create");
+        }
+        auto errs = run_validators(meta().validators, attrs_);
+        if (!errs.empty()) {
+            throw Error("validation failed: " + errs.front().field + " " + errs.front().message);
+        }
+        for (auto& h : meta().before_update) h(*this);
+        for (auto& h : meta().before_save) h(*this);
+        touch_updated_at_();
+        Row patch = Row::object();
+        if (dirty_keys_.empty()) {
+            for (auto it = attrs_.begin(); it != attrs_.end(); ++it) {
+                if (it.key() != "id") patch[it.key()] = it.value();
+            }
+        } else {
+            for (const auto& key : dirty_keys_) {
+                if (key != "id" && attrs_.contains(key)) patch[key] = attrs_.at(key);
+            }
+        }
+        if (patch.empty()) return true;
+        persist_update_(patch);
+        dirty_ = false;
+        dirty_keys_.clear();
+        for (auto& h : meta().after_update) h(*this);
+        for (auto& h : meta().after_save) h(*this);
+        return true;
+    }
+
+    bool destroy() override {
+        ensure_boot();
+        if (!db_) throw Error("record has no database");
+        for (auto& h : meta().before_destroy) h(*this);
+        persist_destroy_();
+        for (auto& h : meta().after_destroy) h(*this);
+        return true;
+    }
+
     Rows related(std::string_view name) {
         ensure_boot();
         auto* rel = meta().relations.find(name);
         if (!rel) throw Error(std::string("unknown relation: ") + std::string(name));
         switch (rel->kind) {
             case RelationKind::HasMany:
+                return Query(db_, rel->related_table)
+                    .where_eq(rel->foreign_key, id())
+                    .get();
             case RelationKind::HasOne:
                 return Query(db_, rel->related_table)
                     .where_eq(rel->foreign_key, id())
+                    .limit(1)
                     .get();
             case RelationKind::BelongsTo: {
                 auto fk = attrs_.contains(rel->foreign_key) ? attrs_[rel->foreign_key]
@@ -254,8 +309,8 @@ public:
                 auto p = quote_ident(db_->dialect(), rel->pivot_table);
                 auto sql = "SELECT " + q + ".* FROM " + q + " INNER JOIN " + p + " ON " + p +
                            "." + quote_ident(db_->dialect(), rel->related_key) + " = " + q +
-                           "." + quote_ident(db_->dialect(), "id") + " WHERE " + p + "." +
-                           quote_ident(db_->dialect(), rel->foreign_key) + " = ?";
+                           "." + quote_ident(db_->dialect(), rel->local_key) + " WHERE " + p +
+                           "." + quote_ident(db_->dialect(), rel->foreign_key) + " = ?";
                 return db_->query(sql, {id()});
             }
         }
@@ -264,6 +319,45 @@ public:
 
 private:
     void persist_insert_();
+    static std::string now_iso_() {
+        using namespace std::chrono;
+        const auto now = system_clock::now();
+        const auto t = system_clock::to_time_t(now);
+        std::tm tm{};
+        gmtime_r(&t, &tm);
+        const auto us = duration_cast<microseconds>(now.time_since_epoch()) % 1'000'000;
+        char buf[48];
+        std::snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d.%06dZ", tm.tm_year + 1900,
+                      tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+                      static_cast<int>(us.count()));
+        return std::string(buf);
+    }
+    void stamp_timestamps_for_create_() {
+        const auto now = now_iso_();
+        for (auto& c : Derived::schema().columns()) {
+            if (c.name == "created_at" && !attrs_.contains("created_at"))
+                set("created_at", now);
+            if (c.name == "updated_at" && !attrs_.contains("updated_at"))
+                set("updated_at", now);
+        }
+    }
+    void touch_updated_at_() {
+        for (auto& c : Derived::schema().columns()) {
+            if (c.name == "updated_at") {
+                auto next = now_iso_();
+                if (attrs_.contains("updated_at") && !attrs_["updated_at"].is_null()) {
+                    const auto prev = attrs_["updated_at"].get<std::string>();
+                    if (next <= prev) {
+                        using namespace std::chrono;
+                        std::this_thread::sleep_for(microseconds(1));
+                        next = now_iso_();
+                    }
+                }
+                set("updated_at", std::move(next));
+                break;
+            }
+        }
+    }
 };
 
 } // namespace socketify::db

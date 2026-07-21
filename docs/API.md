@@ -385,16 +385,145 @@ server.Get("/chat", [&](Request& req, Response& res) {
 | Piece | Role |
 |---|---|
 | `pulse::upgrade(req, res, opts)` | Validate handshake; set 101 + `Sec-WebSocket-Accept`; return `Channel` |
-| `Channel` | Thread-safe: `send_text` / `send_binary` / `ping` / `close`; `on_text` / `on_binary` / `on_close` |
-| `pulse::Hub` | Rooms + broadcast (`join` / `leave` / `to(room).broadcast_text`) |
-| `pulse::Options` | `subprotocols`, `max_message_bytes`, `auto_pong` (default `true`) |
+| `Channel` | Thread-safe: `send_text` / `send_binary` / `send_raw` / `send_*_stream` / `ping` / `close`; `on_text` / `on_binary` / `on_ping` / `on_close` |
+| `pulse::Hub` | Rooms + broadcast; `broadcast_frame` encodes once; `prune` / `members` |
+| `pulse::Options` | `subprotocols`, `max_message_bytes`, `max_pending_bytes`, `fragment_size`, `auto_pong` |
 
-Callbacks run on the connection’s worker event-loop thread. Cross-thread
-`send_*` is safe (same notify pattern as SSE). Fragmented client messages are
-reassembled; oversized payloads are rejected per `max_message_bytes`.
-permessage-deflate is not enabled in this release.
+New in this release: outbound fragmentation (`begin_text` / `write_text` / `end_text`),
+backpressure (`pending_bytes`, `writable`), connection `id()`, and encode-once
+`Hub::broadcast_frame`.
 
 See `examples/10_pulse_chat` for a browser lobby demo.
+
+## Pulse Easy (JSON events)
+
+Developer-friendly wrapper — typed JSON envelopes, auto room cleanup:
+
+```cpp
+#include <socketify/pulse_easy.h>
+
+pulse_easy::App app;
+app.on("/chat", [](pulse_easy::Connection& conn) {
+    conn.join("lobby");
+    conn.emit("welcome", {{"text", "hello"}});
+    conn.on("chat", [](pulse_easy::Connection& c, const pulse_easy::json& msg) {
+        c.broadcast("lobby", "chat", msg);
+    });
+});
+app.bind(server);
+```
+
+Messages use `{ "type": "...", "data": { ... } }`. `App::bind` registers GET routes
+that upgrade to Pulse and wire JSON dispatch automatically.
+
+## Pulse Media (voice / video / image)
+
+Binary streaming protocol (`PM` magic) over Pulse binary frames:
+
+```cpp
+#include <socketify/pulse_media.h>
+
+pulse_media::Hub media(&app.hub());
+media.on_voice("call-1", [](pulse::Channel& from, const pulse_media::Frame& f) {
+    // f.payload = PCM/opus chunk; f.seq, f.timestamp_us for jitter buffer
+});
+media.on_image("call-1", [](pulse::Channel&, const pulse_media::Frame& f) {
+    // f.mime, f.payload — reassemble chunked uploads when f.kind == ImageEnd
+});
+
+app.on("/call", [&](pulse_easy::Connection& conn) {
+    media.join("call-1", conn.channel());
+});
+```
+
+| API | Purpose |
+|---|---|
+| `send_voice(room, pcm)` | Broadcast voice chunk |
+| `send_video(room, frame, keyframe)` | Broadcast video frame |
+| `send_image` / `begin_image` / `write_image` / `end_image` | Image upload (single or chunked) |
+| `pack` / `unpack` | Low-level wire format |
+
+See `examples/11_pulse_media` and `docs/PULSE_UPGRADE_PLAN.md`.
+
+## JSON helpers
+
+```cpp
+#include <socketify/json.h>
+
+auto doc = req.json();
+if (!doc) { res.json_error(Status::BadRequest, "expected JSON body"); return; }
+
+auto name = json::get_or<std::string>(*doc, "user.name", "guest");
+auto id   = json::require<std::int64_t>(*doc, "id");   // throws json::Error
+```
+
+Also: `json::parse(text)`, `json::has(doc, "a.b")`, `json::get<T>(doc, path)`.
+
+## Request validation
+
+```cpp
+#include <socketify/validate.h>
+
+static const validate::Schema kSignup = {
+    validate::field("email").required().string().email(),
+    validate::field("age").integer().min(13).max(120),
+};
+
+auto r = validate::validate(*req.json(), kSignup);
+if (!r.ok) { res.status(Status::UnprocessableEntity).json(r.errors_json()); return; }
+```
+
+## Config / environment
+
+```cpp
+#include <socketify/config.h>
+
+auto cfg = config::Config::from_env().merge_file(".env");
+int port = static_cast<int>(cfg.get_int("PORT").value_or(8080));
+std::string secret = cfg.require("SESSION_SECRET");
+```
+
+## Cache
+
+```cpp
+#include <socketify/cache.h>
+
+cache::TtlCache cache;
+cache.set("user:42", payload, std::chrono::minutes(5));
+if (auto v = cache.get("user:42")) { /* hit */ }
+cache.set_json("cfg", nlohmann::json{{"n", 1}}, std::chrono::seconds(30));
+```
+
+## HTTP client
+
+```cpp
+#include <socketify/http_client.h>
+
+auto res = http_client::get("http://api.example.com/ping");
+if (res.ok() && res.json()) { /* ... */ }
+
+auto created = http_client::post("http://localhost:8080/api/items",
+                                 R"({"title":"x"})");
+```
+
+Built with TLS when `SOCKETIFY_WITH_TLS=ON`; `https://` URLs work unchanged.
+
+## Database ORM — query builder additions
+
+```cpp
+User::query(db)
+    .where_in("id", nlohmann::json::array({1, 2, 3}))
+    .where_not_null("email")
+    .order_by("name")
+    .paginate(1, 20);          // Page{rows, total, page, per_page, total_pages}
+
+Query(&db, "users").upsert({{"email", "a@b.c"}, {"name", "Ada"}}, {"email"});
+Query(&db, "users").first_or_create({{"email", "x@y.z"}, {"name", "X"}});
+```
+
+`Record::save()` / `update()` / `destroy()` now run validators and lifecycle
+hooks and bump `updated_at` when the column exists. `exec()` returns affected
+row counts.
 
 ## HTTPS / TLS
 

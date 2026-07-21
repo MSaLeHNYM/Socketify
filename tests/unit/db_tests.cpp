@@ -69,6 +69,33 @@ struct Hooked : Model<Hooked> {
         });
     }
 };
+struct TimedUser : Model<TimedUser> {
+    static constexpr std::string_view table = "timed";
+    static Schema schema() {
+        return Schema::create(table)
+            .integer("id")
+            .primary()
+            .autoincrement()
+            .text("name")
+            .not_null()
+            .timestamps();
+    }
+    static void boot() { validates("name", required()); }
+};
+
+struct NullableUser : Model<NullableUser> {
+    static constexpr std::string_view table = "nullable_users";
+    static Schema schema() {
+        return Schema::create(table)
+            .integer("id")
+            .primary()
+            .autoincrement()
+            .text("email")
+            .not_null()
+            .text("nickname");
+    }
+};
+
 int Hooked::hits = 0;
 
 } // namespace
@@ -179,4 +206,82 @@ TEST(DbHooks, BeforeSaveRuns) {
     auto h = Hooked::create(db, {{"name", "x"}});
     EXPECT_EQ(Hooked::hits, 1);
     EXPECT_EQ(h->get<std::string>("name"), "x!");
+}
+
+TEST(DbQuery, WhereInAndNull) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 1});
+    User::migrate_schema(db);
+    NullableUser::migrate_schema(db);
+    User::create(db, {{"email", "a@example.com"}, {"name", "A"}});
+    User::create(db, {{"email", "b@example.com"}, {"name", "B"}});
+
+    auto rows = User::query(db).where_in("email", nlohmann::json::array({"a@example.com"})).get();
+    EXPECT_EQ(rows.size(), 1u);
+
+    NullableUser::create(db, {{"email", "null@example.com"}, {"nickname", "nick"}});
+    db.exec("UPDATE " + quote_ident(Dialect::Sqlite, "nullable_users") +
+            " SET nickname = NULL WHERE email = ?",
+            {"null@example.com"});
+    auto nulls = Query(&db, "nullable_users").where_null("nickname").get();
+    EXPECT_EQ(nulls.size(), 1u);
+}
+
+TEST(DbQuery, PaginateAndPluck) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 1});
+    User::migrate_schema(db);
+    for (int i = 0; i < 5; ++i) {
+        User::create(db, {{"email", "u" + std::to_string(i) + "@example.com"},
+                          {"name", "U" + std::to_string(i)}});
+    }
+    auto page = User::query(db).order_by("id").paginate(2, 2);
+    EXPECT_EQ(page.total, 5);
+    EXPECT_EQ(page.page, 2);
+    EXPECT_EQ(page.rows.size(), 2u);
+    auto emails = User::query(db).pluck("email");
+    EXPECT_EQ(emails.size(), 5u);
+}
+
+TEST(DbQuery, UpsertAndFirstOrCreate) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 1});
+    User::migrate_schema(db);
+    Query(&db, "users")
+        .upsert({{"email", "z@example.com"}, {"name", "Z"}}, {"email"});
+    auto row = Query(&db, "users").where_eq("email", "z@example.com").first();
+    ASSERT_TRUE(row.has_value());
+    EXPECT_EQ((*row)["name"], "Z");
+
+    auto created = Query(&db, "users")
+                       .first_or_create({{"email", "new@example.com"}, {"name", "New"}});
+    ASSERT_TRUE(created.has_value());
+    EXPECT_EQ((*created)["name"], "New");
+    auto again = Query(&db, "users")
+                     .first_or_create({{"email", "new@example.com"}, {"name", "New"}});
+    ASSERT_TRUE(again.has_value());
+    EXPECT_EQ(User::query(db).count(), 2);
+}
+
+TEST(DbOrm, SaveRunsValidatorsAndUpdatedAt) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 1});
+    TimedUser::migrate_schema(db);
+    auto t = TimedUser::create(db, {{"name", "before"}});
+    auto before = t->get<std::string>("updated_at");
+    t->update({{"name", "after"}});
+    auto after = TimedUser::find_or_fail(db, t->id())->get<std::string>("updated_at");
+    EXPECT_NE(before, after);
+    EXPECT_THROW(t->update({{"name", ""}}), Error);
+}
+
+TEST(DbOrm, AffectedRowCounts) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 1});
+    User::migrate_schema(db);
+    auto u = User::create(db, {{"email", "c@example.com"}, {"name", "C"}});
+    EXPECT_EQ(User::query(db).where_eq("id", u->id()).update({{"name", "C2"}}), 1);
+    EXPECT_EQ(User::query(db).where_eq("id", 99999).destroy(), 0);
+}
+
+TEST(DbOrm, MemoryPoolSharesDb) {
+    auto db = Database::open(Sqlite{.path = ":memory:", .pool_size = 4});
+    User::migrate_schema(db);
+    User::create(db, {{"email", "pool@example.com"}, {"name", "Pool"}});
+    EXPECT_EQ(User::query(db).count(), 1);
 }

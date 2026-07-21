@@ -8,6 +8,7 @@
 #include "socketify/detail/utils.h"
 
 #include <algorithm>
+#include <algorithm>
 #include <cstring>
 
 namespace socketify::pulse {
@@ -131,6 +132,8 @@ bool feed_bytes(const std::shared_ptr<Channel::Impl>& impl, std::string_view dat
     TextHandler on_text;
     BinaryHandler on_binary;
     CloseHandler on_close;
+    PingHandler on_ping;
+    PongHandler on_pong;
     Options opts;
     {
         std::lock_guard<std::mutex> lk(impl->mu);
@@ -139,6 +142,8 @@ bool feed_bytes(const std::shared_ptr<Channel::Impl>& impl, std::string_view dat
         on_text = impl->on_text;
         on_binary = impl->on_binary;
         on_close = impl->on_close;
+        on_ping = impl->on_ping;
+        on_pong = impl->on_pong;
         opts = impl->opts;
     }
 
@@ -210,10 +215,12 @@ bool feed_bytes(const std::shared_ptr<Channel::Impl>& impl, std::string_view dat
                 return true;
             }
             case 0x9: { // ping
+                if (on_ping) on_ping(ch, fr.payload);
                 if (opts.auto_pong) ch.pong(fr.payload);
                 break;
             }
             case 0xA: // pong
+                if (on_pong) on_pong(ch, fr.payload);
                 break;
             default:
                 return false;
@@ -227,6 +234,92 @@ bool Channel::alive() const {
     if (!impl_) return false;
     std::lock_guard<std::mutex> lk(impl_->mu);
     return !impl_->closed;
+}
+
+std::uint64_t Channel::id() const {
+    if (!impl_) return 0;
+    return impl_->id;
+}
+
+std::size_t Channel::pending_bytes() const {
+    if (!impl_) return 0;
+    std::lock_guard<std::mutex> lk(impl_->mu);
+    return impl_->pending.size();
+}
+
+bool Channel::writable() const {
+    if (!impl_) return false;
+    std::lock_guard<std::mutex> lk(impl_->mu);
+    if (impl_->closed) return false;
+    return impl_->pending.size() < impl_->opts.max_pending_bytes;
+}
+
+bool Channel::begin_fragment_(std::uint8_t opcode) {
+    if (!impl_) return false;
+    std::lock_guard<std::mutex> lk(impl_->mu);
+    if (impl_->closed || impl_->out_frag_active) return false;
+    impl_->out_frag_active = true;
+    impl_->out_frag_opcode = opcode;
+    impl_->out_frag_first = true;
+    return true;
+}
+
+bool Channel::write_fragment_(std::string_view chunk, bool fin) {
+    if (!impl_) return false;
+    std::uint8_t base_opcode = 0;
+    bool first = false;
+    {
+        std::lock_guard<std::mutex> lk(impl_->mu);
+        if (!impl_->out_frag_active) return false;
+        base_opcode = impl_->out_frag_opcode;
+        first = impl_->out_frag_first;
+        if (first) impl_->out_frag_first = false;
+        if (fin) {
+            impl_->out_frag_active = false;
+            impl_->out_frag_opcode = 0;
+        }
+    }
+    return impl_->enqueue(encode_frame(first ? base_opcode : 0x0, chunk, fin));
+}
+
+bool Channel::begin_text() { return begin_fragment_(0x1); }
+bool Channel::write_text(std::string_view chunk) { return write_fragment_(chunk, false); }
+bool Channel::end_text() { return write_fragment_({}, true); }
+bool Channel::begin_binary() { return begin_fragment_(0x2); }
+bool Channel::write_binary(std::string_view chunk) { return write_fragment_(chunk, false); }
+bool Channel::end_binary() { return write_fragment_({}, true); }
+
+bool Channel::send_raw(std::string_view encoded_frame) {
+    if (!impl_) return false;
+    return impl_->enqueue(encoded_frame);
+}
+
+bool Channel::send_text_stream(std::string_view data) {
+    if (!impl_) return false;
+    std::size_t chunk = impl_->opts.fragment_size;
+    if (data.size() <= chunk) return send_text(data);
+    if (!begin_text()) return false;
+    for (std::size_t off = 0; off < data.size();) {
+        const auto take = std::min(chunk, data.size() - off);
+        const bool fin = (off + take >= data.size());
+        if (!write_fragment_(data.substr(off, take), fin)) return false;
+        off += take;
+    }
+    return true;
+}
+
+bool Channel::send_binary_stream(std::string_view data) {
+    if (!impl_) return false;
+    std::size_t chunk = impl_->opts.fragment_size;
+    if (data.size() <= chunk) return send_binary(data);
+    if (!begin_binary()) return false;
+    for (std::size_t off = 0; off < data.size();) {
+        const auto take = std::min(chunk, data.size() - off);
+        const bool fin = (off + take >= data.size());
+        if (!write_fragment_(data.substr(off, take), fin)) return false;
+        off += take;
+    }
+    return true;
 }
 
 bool Channel::send_text(std::string_view data) {
@@ -279,6 +372,18 @@ void Channel::on_close(CloseHandler fn) {
     if (!impl_) return;
     std::lock_guard<std::mutex> lk(impl_->mu);
     impl_->on_close = std::move(fn);
+}
+
+void Channel::on_ping(PingHandler fn) {
+    if (!impl_) return;
+    std::lock_guard<std::mutex> lk(impl_->mu);
+    impl_->on_ping = std::move(fn);
+}
+
+void Channel::on_pong(PongHandler fn) {
+    if (!impl_) return;
+    std::lock_guard<std::mutex> lk(impl_->mu);
+    impl_->on_pong = std::move(fn);
 }
 
 const std::string& Channel::protocol() const {
@@ -372,6 +477,17 @@ void Hub::broadcast_binary(std::string_view room, std::string_view data) {
     for (auto& c : snap) c.send_binary(data);
 }
 
+void Hub::broadcast_frame(std::string_view room, std::string_view encoded_frame) {
+    std::vector<Channel> snap;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = rooms_.find(std::string(room));
+        if (it == rooms_.end()) return;
+        snap = it->second;
+    }
+    for (auto& c : snap) c.send_raw(encoded_frame);
+}
+
 void Hub::broadcast_text(std::string_view data) {
     std::vector<Channel> snap;
     {
@@ -386,6 +502,25 @@ std::size_t Hub::room_size(std::string_view room) const {
     std::lock_guard<std::mutex> lk(mu_);
     auto it = rooms_.find(std::string(room));
     return it == rooms_.end() ? 0 : it->second.size();
+}
+
+std::size_t Hub::prune(std::string_view room) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = rooms_.find(std::string(room));
+    if (it == rooms_.end()) return 0;
+    const auto before = it->second.size();
+    auto& v = it->second;
+    v.erase(std::remove_if(v.begin(), v.end(), [](const Channel& c) { return !c.alive(); }),
+            v.end());
+    if (v.empty()) rooms_.erase(it);
+    return before - v.size();
+}
+
+std::vector<Channel> Hub::members(std::string_view room) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = rooms_.find(std::string(room));
+    if (it == rooms_.end()) return {};
+    return it->second;
 }
 
 } // namespace socketify::pulse

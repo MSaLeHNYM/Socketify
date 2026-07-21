@@ -48,6 +48,12 @@ bool Response::json(const nlohmann::json& j) {
     return true;
 }
 
+bool Response::json_error(Status s, std::string_view message) {
+    if (ended_) return false;
+    status(s);
+    return json(nlohmann::json{{"error", std::string(message)}});
+}
+
 bool Response::send_status(Status s) {
     if (ended_) return false;
     status(s);

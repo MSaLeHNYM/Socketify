@@ -82,6 +82,12 @@ public:
     /** @brief Serialize @p j and finish the response as application/json. */
     bool json(const nlohmann::json& j);
 
+    /**
+     * @brief Set @p s and finish with a JSON body {"error": message}.
+     * @return false when the response was already ended.
+     */
+    bool json_error(Status s, std::string_view message);
+
     /** @brief Finish with a status code and its reason phrase as plain text. */
     bool send_status(Status s);
 

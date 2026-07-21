@@ -26,7 +26,8 @@ using Params = std::vector<nlohmann::json>;
 struct SqlEngine {
     virtual ~SqlEngine() = default;
     virtual Dialect dialect() const = 0;
-    virtual void exec(std::string_view sql, const Params& params = {}) = 0;
+    /** @brief Execute a statement; returns affected row count. */
+    virtual std::int64_t exec(std::string_view sql, const Params& params = {}) = 0;
     virtual Rows query(std::string_view sql, const Params& params = {}) = 0;
     /** @brief INSERT … ; returns last insert id when available (else 0). */
     virtual std::int64_t insert(std::string_view sql, const Params& params = {}) = 0;

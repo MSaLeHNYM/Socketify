@@ -11,8 +11,22 @@ namespace socketify::db {
 
 std::string quote_ident(Dialect d, std::string_view name) {
     std::string n(name);
-    if (d == Dialect::Mysql) return "`" + n + "`";
-    return "\"" + n + "\"";
+    if (d == Dialect::Mysql) {
+        std::string escaped;
+        escaped.reserve(n.size() + 2);
+        for (char c : n) {
+            if (c == '`') escaped += "``";
+            else escaped += c;
+        }
+        return "`" + escaped + "`";
+    }
+    std::string escaped;
+    escaped.reserve(n.size() + 2);
+    for (char c : n) {
+        if (c == '"') escaped += "\"\"";
+        else escaped += c;
+    }
+    return "\"" + escaped + "\"";
 }
 
 std::string column_type_sql(Dialect d, const Column& c) {

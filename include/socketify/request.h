@@ -6,7 +6,10 @@
 
 #include "socketify/http.h"
 
+#include <nlohmann/json.hpp>
+
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -104,6 +107,13 @@ public:
 
     /** @brief True when a non-empty body was received. */
     bool has_body() const noexcept { return !body_.empty() || !body_storage_.empty(); }
+
+    /**
+     * @brief Parse the request body as JSON.
+     * @return The document, or std::nullopt when the body is empty or invalid.
+     * @note Content-Type is not required to be application/json.
+     */
+    std::optional<nlohmann::json> json() const;
 
     // ------------------------------------------------------------------
     // Per-request locals (used by middleware such as sessions)

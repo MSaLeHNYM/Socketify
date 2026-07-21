@@ -35,13 +35,13 @@ public:
 
     Dialect dialect() const override { return Dialect::Mysql; }
 
-    void exec(std::string_view sql, const Params& params) override {
+    std::int64_t exec(std::string_view sql, const Params& params) override {
         auto bound = bind_sql_(sql, params);
         if (mysql_real_query(conn_, bound.data(), bound.size()) != 0) {
             throw Error(mysql_error(conn_), static_cast<int>(mysql_errno(conn_)));
         }
-        // drain result if any
         if (auto* res = mysql_store_result(conn_)) mysql_free_result(res);
+        return static_cast<std::int64_t>(mysql_affected_rows(conn_));
     }
 
     Rows query(std::string_view sql, const Params& params) override {
@@ -75,9 +75,9 @@ public:
         return static_cast<std::int64_t>(mysql_insert_id(conn_));
     }
 
-    void begin() override { exec("START TRANSACTION", {}); }
-    void commit() override { exec("COMMIT", {}); }
-    void rollback() override { exec("ROLLBACK", {}); }
+    void begin() override { (void)exec("START TRANSACTION", {}); }
+    void commit() override { (void)exec("COMMIT", {}); }
+    void rollback() override { (void)exec("ROLLBACK", {}); }
 
 private:
     MYSQL* conn_{nullptr};

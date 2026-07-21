@@ -15,7 +15,7 @@
   <img alt="Linux" src="https://img.shields.io/badge/OS-Linux-FCC624?style=flat-square&logo=linux&logoColor=black">
   <img alt="epoll" src="https://img.shields.io/badge/I%2FO-epoll%20%2B%20SO__REUSEPORT-0D9488?style=flat-square">
   <img alt="TLS" src="https://img.shields.io/badge/TLS-OpenSSL-721412?style=flat-square&logo=openssl&logoColor=white">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-177%20passing-22C55E?style=flat-square">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-203%20passing-22C55E?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-Source--Available-orange?style=flat-square">
   <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square">
 </p>
@@ -76,8 +76,15 @@ int main() {
 - **Server-Sent Events** — `sse::upgrade()` with a thread-safe session
   handle for pushing events from any thread
 - **Pulse** — bidirectional realtime channels (`pulse::upgrade` / `Channel` /
-  `Hub`); RFC 6455 WebSocket under the hood so browsers and `wscat` work
+  `Hub`); **pulse_easy** JSON events; **pulse_media** voice/video/image streaming;
+  RFC 6455 WebSocket under the hood so browsers and `wscat` work unchanged
   unchanged (`ws://` / `wss://`)
+- **JSON helpers** — `socketify::json` dotted-path access, safe parse,
+  `req.json()` / `res.json_error()`
+- **Validation** — `socketify::validate` declarative schemas for request bodies
+- **Config** — `socketify::config` typed env + `.env` file loader
+- **Cache** — `socketify::cache` thread-safe TTL key/value store with JSON helpers
+- **HTTP client** — `socketify::http_client` synchronous GET/POST with optional TLS
 - **Performance architecture** — one epoll loop per worker thread,
   `SO_REUSEPORT` listeners (no accept contention), non-blocking sockets,
   buffered writes, timer-based connection expiry
@@ -263,6 +270,7 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 | [`08_nexus_board`](examples/08_nexus_board) | **React + SQLite app**: auth, projects, kanban, uploads, live SSE |
 | [`09_orm_demo`](examples/09_orm_demo) | `socketify::db` ORM: models, relations, migrations, Mongo documents |
 | [`10_pulse_chat`](examples/10_pulse_chat) | lobby chat over Pulse (browser `WebSocket` + `pulse::Hub`) |
+| [`11_pulse_media`](examples/11_pulse_media) | Pulse Easy + voice/image relay via `pulse_media` |
 | [`ripple`](examples/ripple) | **[Ripple](https://github.com/MSaLeHNYM/ripple)** — Telegram-style messenger (Pulse + SQLite + React) · *submodule* |
 
 <p align="center">
@@ -285,7 +293,7 @@ Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify
 
 ## Tests
 
-177 unit and integration tests (GoogleTest), run under
+203 unit and integration tests (GoogleTest), run under
 AddressSanitizer/UBSan in the debug build:
 
 ```bash

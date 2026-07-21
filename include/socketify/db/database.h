@@ -59,7 +59,8 @@ public:
 
     Dialect dialect() const noexcept { return dialect_; }
 
-    void exec(std::string_view sql, const Params& params = {});
+    /** @brief Execute a statement; returns affected row count. */
+    std::int64_t exec(std::string_view sql, const Params& params = {});
     Rows query(std::string_view sql, const Params& params = {});
     std::int64_t insert(std::string_view sql, const Params& params = {});
 

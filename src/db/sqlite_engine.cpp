@@ -21,7 +21,13 @@ namespace {
 class SqliteEngine final : public SqlEngine {
 public:
     explicit SqliteEngine(const std::string& path) {
-        if (sqlite3_open(path.c_str(), &db_) != SQLITE_OK) {
+        std::string open_path = path;
+        int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+        if (path == ":memory:") {
+            open_path = "file:socketify_shared_mem?mode=memory&cache=shared";
+            flags |= SQLITE_OPEN_URI;
+        }
+        if (sqlite3_open_v2(open_path.c_str(), &db_, flags, nullptr) != SQLITE_OK) {
             std::string msg = db_ ? sqlite3_errmsg(db_) : "sqlite open failed";
             if (db_) sqlite3_close(db_);
             throw Error(msg);
@@ -36,7 +42,7 @@ public:
 
     Dialect dialect() const override { return Dialect::Sqlite; }
 
-    void exec(std::string_view sql, const Params& params) override {
+    std::int64_t exec(std::string_view sql, const Params& params) override {
         std::lock_guard lk(mu_);
         sqlite3_stmt* st = prepare_(sql);
         bind_(st, params);
@@ -45,6 +51,7 @@ public:
         if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
             throw Error(sqlite3_errmsg(db_), sqlite3_errcode(db_));
         }
+        return static_cast<std::int64_t>(sqlite3_changes(db_));
     }
 
     Rows query(std::string_view sql, const Params& params) override {
@@ -98,9 +105,9 @@ public:
         return static_cast<std::int64_t>(sqlite3_last_insert_rowid(db_));
     }
 
-    void begin() override { exec("BEGIN", {}); }
-    void commit() override { exec("COMMIT", {}); }
-    void rollback() override { exec("ROLLBACK", {}); }
+    void begin() override { (void)exec("BEGIN", {}); }
+    void commit() override { (void)exec("COMMIT", {}); }
+    void rollback() override { (void)exec("ROLLBACK", {}); }
 
 private:
     sqlite3* db_{nullptr};

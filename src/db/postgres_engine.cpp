@@ -8,6 +8,7 @@
 
 #if SOCKETIFY_HAS_POSTGRES
 #include <libpq-fe.h>
+#include <cstdlib>
 #include <sstream>
 #endif
 
@@ -55,7 +56,7 @@ public:
 
     Dialect dialect() const override { return Dialect::Postgres; }
 
-    void exec(std::string_view sql, const Params& params) override {
+    std::int64_t exec(std::string_view sql, const Params& params) override {
         auto r = exec_params_(sql, params);
         auto status = PQresultStatus(r);
         if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
@@ -63,7 +64,10 @@ public:
             PQclear(r);
             throw Error(msg);
         }
+        const char* tuples = PQcmdTuples(r);
+        std::int64_t n = (tuples && tuples[0]) ? std::atoll(tuples) : 0;
         PQclear(r);
+        return n;
     }
 
     Rows query(std::string_view sql, const Params& params) override {
@@ -107,9 +111,9 @@ public:
         return 0;
     }
 
-    void begin() override { exec("BEGIN", {}); }
-    void commit() override { exec("COMMIT", {}); }
-    void rollback() override { exec("ROLLBACK", {}); }
+    void begin() override { (void)exec("BEGIN", {}); }
+    void commit() override { (void)exec("COMMIT", {}); }
+    void rollback() override { (void)exec("ROLLBACK", {}); }
 
 private:
     PGconn* conn_{nullptr};

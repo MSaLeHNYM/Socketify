@@ -106,6 +106,13 @@ set(SOCKETIFY_PUBLIC_HEADERS
     include/socketify/tls.h
     include/socketify/sse.h
     include/socketify/pulse.h
+    include/socketify/pulse_easy.h
+    include/socketify/pulse_media.h
+    include/socketify/json.h
+    include/socketify/validate.h
+    include/socketify/config.h
+    include/socketify/cache.h
+    include/socketify/http_client.h
     include/socketify/db.h
     include/socketify/db/error.h
     include/socketify/db/schema.h
@@ -147,6 +154,13 @@ set(SOCKETIFY_SOURCES
     src/tls.cpp
     src/sse.cpp
     src/pulse.cpp
+    src/pulse_easy.cpp
+    src/pulse_media.cpp
+    src/json.cpp
+    src/validate.cpp
+    src/config.cpp
+    src/cache.cpp
+    src/http_client.cpp
     src/db/schema.cpp
     src/db/database.cpp
     src/db/query.cpp
