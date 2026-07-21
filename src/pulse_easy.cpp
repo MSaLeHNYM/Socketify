@@ -55,18 +55,8 @@ void Connection::on_raw(std::function<void(Connection&, std::string_view raw)> f
 
 void Connection::on_close(
     std::function<void(Connection&, pulse::CloseCode, std::string_view)> fn) {
-    if (!state_ || !app_) return;
-    std::weak_ptr<ConnectionState> weak = state_;
-    App* app = app_;
-    state_->ch.on_close(
-        [weak, app, fn = std::move(fn)](pulse::Channel& c, pulse::CloseCode code,
-                                        std::string_view reason) {
-            if (auto locked = weak.lock()) {
-                Connection conn(locked, app);
-                if (fn) fn(conn, code, reason);
-            }
-            app->release(c);
-        });
+    if (!state_ || !fn) return;
+    state_->close_handlers.push_back(std::move(fn));
 }
 
 void Connection::set_default_room(std::string room) {
@@ -108,18 +98,36 @@ void App::release_id_(std::uint64_t id) {
     {
         std::lock_guard<std::mutex> lk(mu_);
         auto it = live_.find(id);
-        if (it == live_.end()) return;
+        if (it == live_.end()) return; // idempotent
         dropped = std::move(it->second);
         live_.erase(it);
     }
-    if (dropped && dropped->ch.valid() && hub_) {
+    if (!dropped) return;
+
+    // Leave rooms while the Channel handle is still valid. Safe if the app
+    // already called leave_all from Connection::on_close.
+    if (hub_ && dropped->ch.valid()) {
         hub_->leave_all(dropped->ch);
     }
+
+    // Drop handler tables before destroying Channel member so any nested
+    // dispatch cannot observe half-destroyed maps.
+    dropped->handlers.clear();
+    dropped->raw_handler = nullptr;
+    dropped->close_handlers.clear();
+    // `dropped` destroyed at end of scope (after this close-hook frame returns
+    // if the caller still holds a shared_ptr to the same state).
 }
 
 void App::release(const pulse::Channel& ch) {
     if (!ch.valid()) return;
     release_id_(ch.id());
+}
+
+bool App::is_live(const pulse::Channel& ch) const {
+    if (!ch.valid()) return false;
+    std::lock_guard<std::mutex> lk(mu_);
+    return live_.find(ch.id()) != live_.end();
 }
 
 void App::wire_channel_(const std::shared_ptr<ConnectionState>& state) {
@@ -130,8 +138,22 @@ void App::wire_channel_(const std::shared_ptr<ConnectionState>& state) {
         Connection conn(locked, this);
         conn.dispatch_text_(raw);
     });
+
+    // Always retain an App-owned close hook. Channel::on_close appends, so
+    // pulse_media / user Channel hooks cannot wipe this release path.
     const std::uint64_t id = state->ch.id();
-    state->ch.on_close([this, id](pulse::Channel&, pulse::CloseCode, std::string_view) {
+    state->ch.on_close([weak, this, id](pulse::Channel&, pulse::CloseCode code,
+                                        std::string_view reason) {
+        // Keep state alive for the full callback so user close handlers can use
+        // Connection safely; release_id_ only drops the App retain.
+        auto locked = weak.lock();
+        if (locked) {
+            auto handlers = locked->close_handlers; // copy — re-entrant safe
+            Connection conn(locked, this);
+            for (auto& fn : handlers) {
+                if (fn) fn(conn, code, reason);
+            }
+        }
         release_id_(id);
     });
 }

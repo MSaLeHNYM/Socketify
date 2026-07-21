@@ -65,7 +65,7 @@ message(STATUS "Socketify ${Socketify_VERSION}")
 ```cpp
 #include <socketify/version.h>
 static_assert(SOCKETIFY_VERSION_MAJOR >= 0);
-auto v = socketify::version_string();  // "0.2.1"
+auto v = socketify::version_string();  // "0.2.2"
 ```
 
 ## CLI (`socketify`)
@@ -470,8 +470,22 @@ app.bind(server);
 
 Messages use `{ "type": "...", "data": { ... } }`. `App::bind` / `App::adopt` retain
 connection state until the channel closes, so `on(...)` handlers keep working after
-the upgrade route returns. Prefer `Connection::on_close` for cleanup; if you replace
-`Channel::on_close` yourself, call `App::release(ch)` so handlers are freed.
+the upgrade route returns.
+
+**Close cleanup (with or without pulse_media):** use `Connection::on_close` for app
+logic. It does **not** replace Channel handlers. `App` always registers its own close
+hook that runs your callbacks then releases retained state (idempotent).
+`Channel::on_close` **appends** (composable), so `pulse_media::Hub::attach` / `join`
+cannot wipe App release. You should not need a manual `App::release` in normal use.
+
+```cpp
+auto conn = easy.adopt(ch);
+conn.on_close([&](pulse_easy::Connection& c, pulse::CloseCode, std::string_view) {
+    hub.leave_all(c.channel());
+    // presence broadcast, etc.
+});
+media.join("call-1", conn.channel()); // safe — chains close, App still releases
+```
 
 ## Pulse Media (voice / video / image)
 

@@ -31,7 +31,7 @@ struct Channel::Impl {
 
     TextHandler on_text;
     BinaryHandler on_binary;
-    CloseHandler on_close;
+    std::vector<CloseHandler> on_close; ///< Composable; all run once on close.
     PingHandler on_ping;
     PongHandler on_pong;
 

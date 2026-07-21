@@ -852,7 +852,7 @@ void Worker::flush_pulse_(Connection* c) {
 
 void Worker::release_pulse_(Connection* c) {
     if (!c->pulse) return;
-    pulse::CloseHandler on_close;
+    std::vector<pulse::CloseHandler> on_close;
     bool fire = false;
     {
         std::lock_guard<std::mutex> lk(c->pulse->mu);
@@ -865,9 +865,11 @@ void Worker::release_pulse_(Connection* c) {
             on_close = c->pulse->on_close;
         }
     }
-    if (fire && on_close) {
+    if (fire) {
         pulse::Channel ch(c->pulse);
-        on_close(ch, pulse::CloseCode::Abnormal, {});
+        for (auto& cb : on_close) {
+            if (cb) cb(ch, pulse::CloseCode::Abnormal, {});
+        }
     }
 }
 

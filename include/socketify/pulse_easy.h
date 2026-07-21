@@ -5,8 +5,13 @@
  *
  * `adopt` / `bind` retain ConnectionState until the channel closes so
  * `on(...)` handlers keep working after the upgrade route returns.
- * Replacing `Channel::on_close` after adopt drops that cleanup — use
- * `Connection::on_close` or call `App::release` from your own close handler.
+ *
+ * Close cleanup is composable:
+ *  - `Connection::on_close` registers app callbacks (does not replace Channel handlers).
+ *  - `App` always registers its own Channel close hook that runs those callbacks
+ *    then `release` (idempotent).
+ *  - `Channel::on_close` appends, so `pulse_media::Hub::attach` / `join` cannot
+ *    wipe App release. Prefer `Connection::on_close` for app cleanup when using media.
  */
 
 #include "socketify/pulse.h"
@@ -37,6 +42,7 @@ struct ConnectionState {
     std::string default_room;
     std::unordered_map<std::string, std::function<void(Connection&, const json&)>> handlers;
     std::function<void(Connection&, std::string_view)> raw_handler;
+    std::vector<std::function<void(Connection&, pulse::CloseCode, std::string_view)>> close_handlers;
 };
 
 /**
@@ -56,8 +62,8 @@ public:
     void on(std::string type, std::function<void(Connection&, const json& data)> fn);
     void on_raw(std::function<void(Connection&, std::string_view raw)> fn);
     /**
-     * @brief Register a close handler that still releases App-owned state.
-     * Prefer this over `channel().on_close(...)` after `adopt`/`bind`.
+     * @brief Register close cleanup. Safe with pulse_media — does not replace
+     *        Channel close handlers. App still releases retained state afterward.
      */
     void on_close(std::function<void(Connection&, pulse::CloseCode, std::string_view)> fn);
     void set_default_room(std::string room);
@@ -87,9 +93,12 @@ public:
     Connection adopt(pulse::Channel ch);
     /**
      * @brief Drop retained state for @p ch (leave rooms + free handlers).
-     * Call this from a custom `Channel::on_close` if you replaced the default.
+     * Idempotent and safe to call from custom Channel close hooks.
      */
     void release(const pulse::Channel& ch);
+
+    /** @brief True while @p ch is retained in this App (testing / diagnostics). */
+    bool is_live(const pulse::Channel& ch) const;
 
 private:
     void wire_channel_(const std::shared_ptr<ConnectionState>& state);
@@ -97,7 +106,7 @@ private:
 
     pulse::Hub owned_hub_;
     pulse::Hub* hub_;
-    std::mutex mu_;
+    mutable std::mutex mu_;
     std::unordered_map<std::uint64_t, std::shared_ptr<ConnectionState>> live_;
     struct Route {
         std::string path;

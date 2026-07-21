@@ -11,7 +11,7 @@
  * media.on_voice("call-1", [](pulse::Channel& from, const pulse_media::Frame& f) {
  *     play_pcm(f.payload);
  * });
- * media.attach(conn.channel());
+ * media.attach(conn.channel());  // chains Channel::on_close; App release still runs
  * media.send_voice("call-1", pcm_chunk);
  * @endcode
  */

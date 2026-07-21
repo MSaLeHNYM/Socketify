@@ -82,6 +82,11 @@ public:
 
     void on_text(TextHandler fn);
     void on_binary(BinaryHandler fn);
+    /**
+     * @brief Append a close handler (composable). Handlers run in registration
+     *        order when the channel closes. Prefer this over replacing a single
+     *        callback so libraries (pulse_easy / pulse_media) can coexist.
+     */
     void on_close(CloseHandler fn);
     void on_ping(PingHandler fn);
     void on_pong(PongHandler fn);

@@ -131,7 +131,7 @@ bool feed_bytes(const std::shared_ptr<Channel::Impl>& impl, std::string_view dat
     if (!impl) return false;
     TextHandler on_text;
     BinaryHandler on_binary;
-    CloseHandler on_close;
+    std::vector<CloseHandler> on_close;
     PingHandler on_ping;
     PongHandler on_pong;
     Options opts;
@@ -202,16 +202,20 @@ bool feed_bytes(const std::shared_ptr<Channel::Impl>& impl, std::string_view dat
                 // Echo close
                 ch.close(code, reason);
                 bool fire = false;
-                CloseHandler cb;
+                std::vector<CloseHandler> cbs;
                 {
                     std::lock_guard<std::mutex> lk(impl->mu);
                     if (!impl->close_fired) {
                         impl->close_fired = true;
                         fire = true;
-                        cb = impl->on_close;
+                        cbs = impl->on_close;
                     }
                 }
-                if (fire && cb) cb(ch, code, reason);
+                if (fire) {
+                    for (auto& cb : cbs) {
+                        if (cb) cb(ch, code, reason);
+                    }
+                }
                 return true;
             }
             case 0x9: { // ping
@@ -369,9 +373,9 @@ void Channel::on_binary(BinaryHandler fn) {
 }
 
 void Channel::on_close(CloseHandler fn) {
-    if (!impl_) return;
+    if (!impl_ || !fn) return;
     std::lock_guard<std::mutex> lk(impl_->mu);
-    impl_->on_close = std::move(fn);
+    impl_->on_close.push_back(std::move(fn));
 }
 
 void Channel::on_ping(PingHandler fn) {
