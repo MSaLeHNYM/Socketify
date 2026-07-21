@@ -53,6 +53,22 @@ void Connection::on_raw(std::function<void(Connection&, std::string_view raw)> f
     state_->raw_handler = std::move(fn);
 }
 
+void Connection::on_close(
+    std::function<void(Connection&, pulse::CloseCode, std::string_view)> fn) {
+    if (!state_ || !app_) return;
+    std::weak_ptr<ConnectionState> weak = state_;
+    App* app = app_;
+    state_->ch.on_close(
+        [weak, app, fn = std::move(fn)](pulse::Channel& c, pulse::CloseCode code,
+                                        std::string_view reason) {
+            if (auto locked = weak.lock()) {
+                Connection conn(locked, app);
+                if (fn) fn(conn, code, reason);
+            }
+            app->release(c);
+        });
+}
+
 void Connection::set_default_room(std::string room) {
     if (!state_) return;
     state_->default_room = std::move(room);
@@ -87,6 +103,25 @@ void App::on(std::string path, std::function<void(Connection&)> handler, pulse::
     routes_.push_back(Route{std::move(path), std::move(opts), std::move(handler)});
 }
 
+void App::release_id_(std::uint64_t id) {
+    std::shared_ptr<ConnectionState> dropped;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = live_.find(id);
+        if (it == live_.end()) return;
+        dropped = std::move(it->second);
+        live_.erase(it);
+    }
+    if (dropped && dropped->ch.valid() && hub_) {
+        hub_->leave_all(dropped->ch);
+    }
+}
+
+void App::release(const pulse::Channel& ch) {
+    if (!ch.valid()) return;
+    release_id_(ch.id());
+}
+
 void App::wire_channel_(const std::shared_ptr<ConnectionState>& state) {
     std::weak_ptr<ConnectionState> weak = state;
     state->ch.on_text([weak, this](pulse::Channel&, std::string_view raw) {
@@ -95,10 +130,9 @@ void App::wire_channel_(const std::shared_ptr<ConnectionState>& state) {
         Connection conn(locked, this);
         conn.dispatch_text_(raw);
     });
-    state->ch.on_close([this, ch = state->ch](pulse::Channel& c, pulse::CloseCode,
-                                              std::string_view) {
-        hub_->leave_all(c);
-        (void)ch;
+    const std::uint64_t id = state->ch.id();
+    state->ch.on_close([this, id](pulse::Channel&, pulse::CloseCode, std::string_view) {
+        release_id_(id);
     });
 }
 
@@ -106,6 +140,10 @@ Connection App::adopt(pulse::Channel ch) {
     auto state = std::make_shared<ConnectionState>();
     state->ch = std::move(ch);
     state->hub = hub_;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        live_[state->ch.id()] = state;
+    }
     wire_channel_(state);
     return Connection(state, this);
 }

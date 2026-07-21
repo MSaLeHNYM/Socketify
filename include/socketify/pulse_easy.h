@@ -2,6 +2,11 @@
 /**
  * @file pulse_easy.h
  * @brief Developer-friendly Pulse wrapper — JSON events, rooms, auto-cleanup.
+ *
+ * `adopt` / `bind` retain ConnectionState until the channel closes so
+ * `on(...)` handlers keep working after the upgrade route returns.
+ * Replacing `Channel::on_close` after adopt drops that cleanup — use
+ * `Connection::on_close` or call `App::release` from your own close handler.
  */
 
 #include "socketify/pulse.h"
@@ -9,6 +14,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -49,6 +55,11 @@ public:
     bool broadcast(std::string_view room, std::string type, const json& data);
     void on(std::string type, std::function<void(Connection&, const json& data)> fn);
     void on_raw(std::function<void(Connection&, std::string_view raw)> fn);
+    /**
+     * @brief Register a close handler that still releases App-owned state.
+     * Prefer this over `channel().on_close(...)` after `adopt`/`bind`.
+     */
+    void on_close(std::function<void(Connection&, pulse::CloseCode, std::string_view)> fn);
     void set_default_room(std::string room);
     const std::string& default_room() const;
 
@@ -68,14 +79,26 @@ public:
     void on(std::string path, std::function<void(Connection&)> handler,
             pulse::Options opts = {});
     void bind(Server& server);
+    /**
+     * @brief Adopt an upgraded channel. State is retained until close or
+     *        `release`. Safe to discard the returned Connection after wiring
+     *        handlers — they live in the retained state.
+     */
     Connection adopt(pulse::Channel ch);
+    /**
+     * @brief Drop retained state for @p ch (leave rooms + free handlers).
+     * Call this from a custom `Channel::on_close` if you replaced the default.
+     */
+    void release(const pulse::Channel& ch);
 
 private:
     void wire_channel_(const std::shared_ptr<ConnectionState>& state);
+    void release_id_(std::uint64_t id);
 
     pulse::Hub owned_hub_;
     pulse::Hub* hub_;
     std::mutex mu_;
+    std::unordered_map<std::uint64_t, std::shared_ptr<ConnectionState>> live_;
     struct Route {
         std::string path;
         pulse::Options opts;

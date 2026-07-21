@@ -468,8 +468,10 @@ app.on("/chat", [](pulse_easy::Connection& conn) {
 app.bind(server);
 ```
 
-Messages use `{ "type": "...", "data": { ... } }`. `App::bind` registers GET routes
-that upgrade to Pulse and wire JSON dispatch automatically.
+Messages use `{ "type": "...", "data": { ... } }`. `App::bind` / `App::adopt` retain
+connection state until the channel closes, so `on(...)` handlers keep working after
+the upgrade route returns. Prefer `Connection::on_close` for cleanup; if you replace
+`Channel::on_close` yourself, call `App::release(ch)` so handlers are freed.
 
 ## Pulse Media (voice / video / image)
 
