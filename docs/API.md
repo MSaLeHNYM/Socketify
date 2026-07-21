@@ -453,11 +453,11 @@ See `examples/11_pulse_media` and `docs/PULSE_UPGRADE_PLAN.md`.
 auto doc = req.json();
 if (!doc) { res.json_error(Status::BadRequest, "expected JSON body"); return; }
 
-auto name = json::get_or<std::string>(*doc, "user.name", "guest");
-auto id   = json::require<std::int64_t>(*doc, "id");   // throws json::Error
+auto name = json_util::get_or<std::string>(*doc, "user.name", "guest");
+auto id   = json_util::require<std::int64_t>(*doc, "id");   // throws json_util::Error
 ```
 
-Also: `json::parse(text)`, `json::has(doc, "a.b")`, `json::get<T>(doc, path)`.
+Also: `json_util::parse(text)`, `json_util::has(doc, "a.b")`, `json_util::get<T>(doc, path)`.
 
 ## Request validation
 

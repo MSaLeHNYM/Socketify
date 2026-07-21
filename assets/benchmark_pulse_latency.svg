@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="400" viewBox="0 0 920 400" role="img" aria-label="WebSocket echo P99 latency (ms)">
+<defs>
+  <style><![CDATA[
+    .title { font: 700 20px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #1e293b; }
+    .sub   { font: 12.5px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #64748b; }
+    .label { font: 600 14px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #334155; }
+    .value { font: 700 13px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #0f172a;
+             opacity: 0; animation: fadeIn 0.45s ease-out forwards; }
+    .tick  { font: 11px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #64748b; }
+    .grid  { stroke: #cbd5e1; stroke-width: 1; stroke-dasharray: 4 5; opacity: 0.9; }
+    .axis  { stroke: #94a3b8; stroke-width: 1.25; fill: none; }
+    .bar-group { transform-box: fill-box; transform-origin: left center;
+                 transform: scaleX(0); animation: growBar 1.05s cubic-bezier(0.22, 0.61, 0.36, 1) forwards; }
+    @keyframes growBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-color-scheme: dark) {
+      .title { fill: #f1f5f9; }
+      .sub   { fill: #94a3b8; }
+      .label { fill: #e2e8f0; }
+      .value { fill: #f8fafc; }
+      .tick  { fill: #94a3b8; }
+      .grid  { stroke: #475569; opacity: 0.75; }
+      .axis  { stroke: #64748b; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bar-group { animation: none; transform: scaleX(1); }
+      .value { animation: none; opacity: 1; }
+    }
+  ]]></style>
+</defs>
+<text class="title" x="460.0" y="30" text-anchor="middle">WebSocket echo P99 latency (ms)</text>
+<text class="sub" x="460.0" y="52" text-anchor="middle">Pulse vs Node ws · Python websockets — 128 clients · 64 B payload · 8s</text>
+<line class="axis" x1="150" y1="78" x2="150" y2="348" />
+<line class="axis" x1="150" y1="348" x2="800" y2="348" />
+<line class="grid" x1="312.5" y1="78" x2="312.5" y2="348" />
+<text class="tick" x="312.5" y="366" text-anchor="middle">1.25</text>
+<line class="grid" x1="475.0" y1="78" x2="475.0" y2="348" />
+<text class="tick" x="475.0" y="366" text-anchor="middle">2.50</text>
+<line class="grid" x1="637.5" y1="78" x2="637.5" y2="348" />
+<text class="tick" x="637.5" y="366" text-anchor="middle">3.75</text>
+<line class="grid" x1="800.0" y1="78" x2="800.0" y2="348" />
+<text class="tick" x="800.0" y="366" text-anchor="middle">5.00</text>
+<text class="sub" x="460.0" y="388" text-anchor="middle">Lower is better · animated SVG · transparent for light/dark themes</text>
+<text class="label" x="136" y="128.0" text-anchor="end">Node ws</text>
+<g class="bar-group" style="animation-delay: 0.12s"><rect x="150" y="98.2" width="227.0" height="49.5" rx="8" fill="#16A34A" opacity="0.95"/></g>
+<text class="value" x="389.0" y="128.0" style="animation-delay: 0.87s">1.75 ms</text>
+<text class="label" x="136" y="218.0" text-anchor="end">Pulse</text>
+<g class="bar-group" style="animation-delay: 0.26s"><rect x="150" y="188.2" width="240.4" height="49.5" rx="8" fill="#0D9488" opacity="0.95"/></g>
+<text class="value" x="402.4" y="218.0" style="animation-delay: 1.01s">1.85 ms</text>
+<text class="label" x="136" y="308.0" text-anchor="end">Python WS</text>
+<g class="bar-group" style="animation-delay: 0.40s"><rect x="150" y="278.2" width="335.8" height="49.5" rx="8" fill="#2563EB" opacity="0.95"/></g>
+<text class="value" x="497.8" y="308.0" style="animation-delay: 1.15s">2.58 ms</text>
+</svg>

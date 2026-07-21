@@ -7,7 +7,7 @@
 
 #include "socketify/detail/utils.h"
 
-namespace socketify::json {
+namespace socketify::json_util {
 
 std::optional<nlohmann::json> parse(std::string_view text) {
     if (text.empty()) return std::nullopt;
@@ -55,4 +55,4 @@ const nlohmann::json* find(const nlohmann::json& root, std::string_view path) {
     return cur;
 }
 
-} // namespace socketify::json
+} // namespace socketify::json_util

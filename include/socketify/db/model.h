@@ -333,8 +333,9 @@ private:
         return std::string(buf);
     }
     void stamp_timestamps_for_create_() {
+        const auto schema = Derived::schema();
         const auto now = now_iso_();
-        for (auto& c : Derived::schema().columns()) {
+        for (const auto& c : schema.columns()) {
             if (c.name == "created_at" && !attrs_.contains("created_at"))
                 set("created_at", now);
             if (c.name == "updated_at" && !attrs_.contains("updated_at"))
@@ -342,7 +343,8 @@ private:
         }
     }
     void touch_updated_at_() {
-        for (auto& c : Derived::schema().columns()) {
+        const auto schema = Derived::schema();
+        for (const auto& c : schema.columns()) {
             if (c.name == "updated_at") {
                 auto next = now_iso_();
                 if (attrs_.contains("updated_at") && !attrs_["updated_at"].is_null()) {

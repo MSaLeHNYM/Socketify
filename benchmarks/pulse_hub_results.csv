@@ -1,0 +1,3 @@
+name,delivered_msg_per_sec,peers,rounds,payload_bytes,notes
+Pulse Hub broadcast_frame (encode-once),38554933,1000,2000,256,fan-out one frame to N peers
+Naive per-peer send_text (re-encode),6802453,1000,2000,256,encode WebSocket frame once per peer

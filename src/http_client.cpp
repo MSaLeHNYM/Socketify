@@ -148,7 +148,10 @@ struct TlsTransport : Transport {
         ssl = SSL_new(ctx);
         if (!ssl) { err = "SSL_new failed"; return false; }
         SSL_set_fd(ssl, fd);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
         SSL_set_tlsext_host_name(ssl, host.c_str());
+#pragma GCC diagnostic pop
         if (SSL_connect(ssl) != 1) { err = "TLS handshake failed"; return false; }
         return true;
     }

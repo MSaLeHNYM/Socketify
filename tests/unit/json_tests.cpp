@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace socketify::json;
+using namespace socketify::json_util;
 
 TEST(JsonParse, ValidAndInvalid) {
     auto j = parse(R"({"a":1})");

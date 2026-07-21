@@ -1,0 +1,4 @@
+name,msgs_per_sec,messages_ok,clients,duration_s,latency_avg_ms,latency_p50_ms,latency_p99_ms
+Pulse (Socketify),76600.0,612800,128,8.0,1.6700,1.6560,1.8490
+ws (Node.js),80122.0,640976,128,8.0,1.5900,1.5760,1.7460
+websockets (Python),63511.0,508088,128,8.0,2.0100,1.9920,2.5830

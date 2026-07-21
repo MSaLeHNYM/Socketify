@@ -456,25 +456,11 @@ void Hub::leave_all(const Channel& ch) {
 }
 
 void Hub::broadcast_text(std::string_view room, std::string_view data) {
-    std::vector<Channel> snap;
-    {
-        std::lock_guard<std::mutex> lk(mu_);
-        auto it = rooms_.find(std::string(room));
-        if (it == rooms_.end()) return;
-        snap = it->second;
-    }
-    for (auto& c : snap) c.send_text(data);
+    broadcast_frame(room, encode_frame(0x1, data));
 }
 
 void Hub::broadcast_binary(std::string_view room, std::string_view data) {
-    std::vector<Channel> snap;
-    {
-        std::lock_guard<std::mutex> lk(mu_);
-        auto it = rooms_.find(std::string(room));
-        if (it == rooms_.end()) return;
-        snap = it->second;
-    }
-    for (auto& c : snap) c.send_binary(data);
+    broadcast_frame(room, encode_frame(0x2, data));
 }
 
 void Hub::broadcast_frame(std::string_view room, std::string_view encoded_frame) {

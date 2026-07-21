@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "tool": "asyncio + websockets client",
+    "duration_s": 8.0,
+    "clients": 128,
+    "payload_bytes": 64,
+    "endpoint": "WebSocket text echo (round-trip)",
+    "notes": "Pulse speaks RFC 6455 — browsers and wscat work unchanged. This compares Socketify Pulse echo throughput against popular WS stacks. Echo is client-bound with the asyncio load generator."
+  },
+  "results": [
+    {
+      "name": "Pulse (Socketify)",
+      "msgs_per_sec": 76600.0,
+      "messages_ok": 612800,
+      "clients": 128,
+      "duration_s": 8.0,
+      "latency_avg_ms": 1.67,
+      "latency_p50_ms": 1.656,
+      "latency_p99_ms": 1.849
+    },
+    {
+      "name": "ws (Node.js)",
+      "msgs_per_sec": 80122.0,
+      "messages_ok": 640976,
+      "clients": 128,
+      "duration_s": 8.0,
+      "latency_avg_ms": 1.59,
+      "latency_p50_ms": 1.576,
+      "latency_p99_ms": 1.746
+    },
+    {
+      "name": "websockets (Python)",
+      "msgs_per_sec": 63511.0,
+      "messages_ok": 508088,
+      "clients": 128,
+      "duration_s": 8.0,
+      "latency_avg_ms": 2.01,
+      "latency_p50_ms": 1.992,
+      "latency_p99_ms": 2.583
+    }
+  ]
+}

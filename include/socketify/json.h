@@ -9,12 +9,12 @@
  * common web-handler patterns.
  *
  * @code
- * auto doc = json::parse(req.body_view());
+ * auto doc = json_util::parse(req.body_view());
  * if (!doc) { res.json_error(Status::BadRequest, "invalid json"); return; }
  *
- * auto name = json::get<std::string>(*doc, "user.name");     // std::optional
- * int  age  = json::get_or<int>(*doc, "user.age", 0);        // with fallback
- * auto id   = json::require<std::int64_t>(*doc, "id");       // throws json::Error
+ * auto name = json_util::get<std::string>(*doc, "user.name");     // std::optional
+ * int  age  = json_util::get_or<int>(*doc, "user.age", 0);        // with fallback
+ * auto id   = json_util::require<std::int64_t>(*doc, "id");       // throws json_util::Error
  * @endcode
  */
 
@@ -25,7 +25,7 @@
 #include <string>
 #include <string_view>
 
-namespace socketify::json {
+namespace socketify::json_util {
 
 /** @brief Convenient alias for the underlying JSON value type. */
 using Value = nlohmann::json;
@@ -91,7 +91,7 @@ T get_or(const nlohmann::json& root, std::string_view path, T fallback) {
 }
 
 /**
- * @brief Typed access at @p path; throws json::Error when missing or wrong type.
+ * @brief Typed access at @p path; throws json_util::Error when missing or wrong type.
  */
 template <typename T>
 T require(const nlohmann::json& root, std::string_view path) {
@@ -106,4 +106,4 @@ T require(const nlohmann::json& root, std::string_view path) {
     }
 }
 
-} // namespace socketify::json
+} // namespace socketify::json_util
