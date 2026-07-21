@@ -343,7 +343,7 @@ After `cmake --install build`:
 
 ```cmake
 find_package(Socketify 0.2 REQUIRED)
-# Socketify_VERSION is set (e.g. "0.2.0")
+# Socketify_VERSION is set (e.g. "0.2.1")
 target_link_libraries(app PRIVATE Socketify::socketify)
 ```
 
