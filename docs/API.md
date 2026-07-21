@@ -4,6 +4,8 @@ A practical, hand-written tour of the framework. For per-symbol reference,
 generate the Doxygen docs (`doxygen docs/Doxyfile`).
 
 - [Getting started](#getting-started)
+- [Version](#version)
+- [CLI (`socketify`)](#cli-socketify)
 - [Routing](#routing)
 - [Request](#request)
 - [Response](#response)
@@ -49,6 +51,35 @@ blocking work elsewhere.
 
 **Rule of thumb:** register all routes and middleware *before* `Run()`; the
 routing table is read concurrently afterwards.
+
+## Version
+
+The library version lives in the root `VERSION` file and is visible to CMake
+and C++ (see [VERSIONING.md](VERSIONING.md)):
+
+```cmake
+find_package(Socketify 0.2 REQUIRED)
+message(STATUS "Socketify ${Socketify_VERSION}")
+```
+
+```cpp
+#include <socketify/version.h>
+static_assert(SOCKETIFY_VERSION_MAJOR >= 0);
+auto v = socketify::version_string();  // "0.2.0"
+```
+
+## CLI (`socketify`)
+
+After install (`SOCKETIFY_BUILD_CLI=ON`), the `socketify` binary is on `PATH`:
+
+```bash
+socketify --version
+socketify --info
+socketify --run-http ./public --host 0.0.0.0 --port 8080
+socketify --run-http ./docs --index index.html
+```
+
+`--run-http` serves a directory with static files (directory listing enabled).
 
 ## Routing
 

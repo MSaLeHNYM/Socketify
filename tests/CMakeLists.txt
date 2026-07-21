@@ -25,6 +25,7 @@ add_executable(socketify_tests
     unit/ratelimit_tests.cpp
     unit/sessions_tests.cpp
     unit/logging_tests.cpp
+    unit/version_tests.cpp
     unit/json_tests.cpp
     unit/validate_tests.cpp
     unit/config_tests.cpp
@@ -54,3 +55,11 @@ gtest_discover_tests(socketify_tests
     DISCOVERY_TIMEOUT 30
     PROPERTIES TIMEOUT 60
 )
+
+# Smoke: installed-style CLI --version (when SOCKETIFY_BUILD_CLI is on).
+if(TARGET socketify_cli)
+    add_test(NAME CliVersion
+        COMMAND $<TARGET_FILE:socketify_cli> --version)
+    set_tests_properties(CliVersion PROPERTIES
+        PASS_REGULAR_EXPRESSION "Socketify [0-9]+\\.[0-9]+\\.[0-9]+")
+endif()

@@ -1,0 +1,21 @@
+#pragma once
+/**
+ * @file version.h
+ * @brief Compile-time Socketify version (generated from VERSION via CMake).
+ */
+
+#include <string_view>
+
+#define SOCKETIFY_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define SOCKETIFY_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define SOCKETIFY_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define SOCKETIFY_VERSION_STRING "@PROJECT_VERSION@"
+
+namespace socketify {
+
+/** @brief Library version string, e.g. "0.2.0". */
+inline constexpr std::string_view version_string() noexcept {
+    return SOCKETIFY_VERSION_STRING;
+}
+
+} // namespace socketify

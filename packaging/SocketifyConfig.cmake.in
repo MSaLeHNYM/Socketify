@@ -2,6 +2,11 @@
 
 # SocketifyConfig.cmake — find_package(Socketify) entry point.
 
+set(Socketify_VERSION "@PROJECT_VERSION@")
+set(Socketify_VERSION_MAJOR "@PROJECT_VERSION_MAJOR@")
+set(Socketify_VERSION_MINOR "@PROJECT_VERSION_MINOR@")
+set(Socketify_VERSION_PATCH "@PROJECT_VERSION_PATCH@")
+
 include(CMakeFindDependencyMacro)
 
 find_dependency(nlohmann_json 3.11)

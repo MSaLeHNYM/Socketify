@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
+file(READ "${CMAKE_CURRENT_LIST_DIR}/VERSION" SOCKETIFY_VERSION_RAW)
+string(STRIP "${SOCKETIFY_VERSION_RAW}" SOCKETIFY_VERSION)
+
 project(Socketify
-    VERSION 0.2.0
+    VERSION ${SOCKETIFY_VERSION}
     DESCRIPTION "Socketify: a fast, modern C++20 HTTP/HTTPS server & routing framework"
-    HOMEPAGE_URL "https://github.com/yourname/socketify"
+    HOMEPAGE_URL "https://github.com/MSaLeHNYM/socketify"
     LANGUAGES CXX C
 )
 
@@ -18,6 +21,13 @@ option(SOCKETIFY_WITH_MONGO "Enable MongoDB driver (mongo-cxx-driver)" OFF)
 option(SOCKETIFY_BUILD_EXAMPLES "Build examples" OFF)
 option(SOCKETIFY_BUILD_TESTS "Build tests" OFF)
 option(SOCKETIFY_BUILD_DOCS "Add a 'docs' target (requires Doxygen)" OFF)
+
+# CLI defaults ON for a top-level build, OFF when consumed as a subdirectory.
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    option(SOCKETIFY_BUILD_CLI "Build the socketify manager CLI" ON)
+else()
+    option(SOCKETIFY_BUILD_CLI "Build the socketify manager CLI" OFF)
+endif()
 
 # Respect BUILD_SHARED_LIBS (default static)
 if(NOT DEFINED BUILD_SHARED_LIBS)
@@ -178,6 +188,16 @@ set(SOCKETIFY_SOURCES
 )
 
 # ---------------------------
+# Generated version header
+# ---------------------------
+set(SOCKETIFY_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/include/socketify/version.h.in"
+    "${SOCKETIFY_GENERATED_INCLUDE_DIR}/socketify/version.h"
+    @ONLY
+)
+
+# ---------------------------
 # Library Target
 # ---------------------------
 add_library(socketify ${SOCKETIFY_SOURCES} ${SOCKETIFY_PUBLIC_HEADERS})
@@ -186,6 +206,7 @@ add_library(Socketify::socketify ALIAS socketify)
 target_include_directories(socketify
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+        $<BUILD_INTERFACE:${SOCKETIFY_GENERATED_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src
@@ -247,6 +268,13 @@ socketify_set_warnings(socketify)
 socketify_enable_sanitizers(socketify)
 
 # ---------------------------
+# CLI (optional)
+# ---------------------------
+if(SOCKETIFY_BUILD_CLI)
+    add_subdirectory(tools/socketify_cli)
+endif()
+
+# ---------------------------
 # Examples (optional)
 # ---------------------------
 if(SOCKETIFY_BUILD_EXAMPLES)
@@ -294,7 +322,11 @@ install(TARGETS socketify
 
 install(DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        FILES_MATCHING PATTERN "*.h")
+        FILES_MATCHING PATTERN "*.h"
+                       PATTERN "*.h.in" EXCLUDE)
+
+install(FILES "${SOCKETIFY_GENERATED_INCLUDE_DIR}/socketify/version.h"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/socketify)
 
 install(EXPORT SocketifyTargets
     FILE SocketifyTargets.cmake
@@ -333,6 +365,7 @@ message(STATUS "  SQLite:      ${SOCKETIFY_HAS_SQLITE_INT}")
 message(STATUS "  Postgres:    ${SOCKETIFY_HAS_POSTGRES_INT}")
 message(STATUS "  MySQL:       ${SOCKETIFY_HAS_MYSQL_INT}")
 message(STATUS "  Mongo:       ${SOCKETIFY_HAS_MONGO_INT}")
+message(STATUS "  CLI:         ${SOCKETIFY_BUILD_CLI}")
 message(STATUS "  Examples:    ${SOCKETIFY_BUILD_EXAMPLES}")
 message(STATUS "  Tests:       ${SOCKETIFY_BUILD_TESTS}")
 message(STATUS "  Docs:        ${SOCKETIFY_BUILD_DOCS}")

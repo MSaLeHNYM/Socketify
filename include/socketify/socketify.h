@@ -13,6 +13,7 @@
 #include "socketify/cookies.h"
 #include "socketify/cors.h"
 #include "socketify/http.h"
+#include "socketify/version.h"
 #include "socketify/logging.h"
 #include "socketify/middleware.h"
 #include "socketify/ratelimit.h"

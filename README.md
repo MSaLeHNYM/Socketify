@@ -302,7 +302,13 @@ cmake --install build --prefix /usr/local
 # then in your app:
 #   find_package(Socketify 0.2 REQUIRED)
 #   target_link_libraries(app PRIVATE Socketify::socketify)
+
+socketify --version
+socketify --run-http ./public --port 8080
 ```
+
+Version is read from the root `VERSION` file (see [docs/VERSIONING.md](docs/VERSIONING.md)).
+Bump with `./scripts/bump-version.sh patch|minor|major`.
 
 ### CMake options
 
@@ -313,6 +319,7 @@ cmake --install build --prefix /usr/local
 | `SOCKETIFY_WITH_POSTGRES` | `OFF` | PostgreSQL driver (libpq) |
 | `SOCKETIFY_WITH_MYSQL` | `OFF` | MySQL driver (libmysqlclient) |
 | `SOCKETIFY_WITH_MONGO` | `OFF` | MongoDB driver (mongo-cxx); `memory://` always available |
+| `SOCKETIFY_BUILD_CLI` | `ON` (top-level) | Build/install the `socketify` manager binary |
 | `SOCKETIFY_BUILD_EXAMPLES` | `OFF` | Build `examples/` |
 | `SOCKETIFY_BUILD_TESTS` | `OFF` | Build GoogleTest suite |
 | `SOCKETIFY_BUILD_DOCS` | `OFF` | Add a `docs` Doxygen target |
@@ -328,6 +335,7 @@ Convenience scripts:
 | `scripts/run_tests.sh` | Build (if needed) and run CTest |
 | `scripts/run_examples.sh [01-07]` | Build & run one graded example |
 | `scripts/serve_docs.sh [port]` | Generate Doxygen docs, serve on localhost, open browser |
+| `scripts/bump-version.sh` | Bump SemVer in `VERSION` (patch/minor/major) |
 
 ## Using it in your project
 
@@ -335,7 +343,13 @@ After `cmake --install build`:
 
 ```cmake
 find_package(Socketify 0.2 REQUIRED)
+# Socketify_VERSION is set (e.g. "0.2.0")
 target_link_libraries(app PRIVATE Socketify::socketify)
+```
+
+```cpp
+#include <socketify/version.h>
+// SOCKETIFY_VERSION_STRING / socketify::version_string()
 ```
 
 Or add Socketify as a subdirectory / FetchContent and link `Socketify::socketify`.
