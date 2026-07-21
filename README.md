@@ -17,7 +17,7 @@
   <img alt="TLS" src="https://img.shields.io/badge/TLS-OpenSSL-721412?style=flat-square&logo=openssl&logoColor=white">
   <img alt="Tests" src="https://img.shields.io/badge/tests-203%20passing-22C55E?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-Source--Available-orange?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-blue?style=flat-square">
 </p>
 
 <p align="center">

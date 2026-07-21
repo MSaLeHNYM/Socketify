@@ -65,7 +65,7 @@ message(STATUS "Socketify ${Socketify_VERSION}")
 ```cpp
 #include <socketify/version.h>
 static_assert(SOCKETIFY_VERSION_MAJOR >= 0);
-auto v = socketify::version_string();  // "0.2.0"
+auto v = socketify::version_string();  // "0.2.1"
 ```
 
 ## CLI (`socketify`)
