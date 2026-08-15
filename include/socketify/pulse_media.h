@@ -102,6 +102,9 @@ public:
     void on_video(std::string room, VideoHandler fn);
     void on_image(std::string room, ImageHandler fn);
 
+    /** @brief Leave a media room and detach channel. */
+    void leave(std::string_view room, pulse::Channel ch);
+
 private:
     struct RoomHandlers {
         VoiceHandler voice;
