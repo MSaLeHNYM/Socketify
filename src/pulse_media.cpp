@@ -109,7 +109,12 @@ Hub::Hub(pulse::Hub* rooms) : rooms_(rooms ? rooms : &owned_rooms_) {}
 
 pulse::Hub& Hub::rooms() { return *rooms_; }
 
-std::uint32_t Hub::next_seq_(const std::string& key) { return ++seq_counters_[key]; }
+// seq_counters_ is shared across worker threads (one thread per event loop);
+// guard the increment just like the rest of Hub's state.
+std::uint32_t Hub::next_seq_(const std::string& key) {
+    std::lock_guard<std::mutex> lk(mu_);
+    return ++seq_counters_[key];
+}
 
 void Hub::attach(pulse::Channel ch) {
     if (!ch.valid()) return;
@@ -145,6 +150,19 @@ void Hub::join(std::string room, pulse::Channel ch) {
     rooms_->join(room, ch);
     std::lock_guard<std::mutex> lk(mu_);
     channel_rooms_[ch.impl().get()] = std::move(room);
+}
+
+void Hub::leave(std::string_view room, pulse::Channel ch) {
+    if (!ch.valid()) return;
+    void* key = ch.impl().get();
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = channel_rooms_.find(key);
+        if (it != channel_rooms_.end() && it->second == room) {
+            channel_rooms_.erase(it);
+        }
+    }
+    rooms_->leave(std::string(room), ch);
 }
 
 bool Hub::send_voice(std::string_view room, std::string_view pcm, std::uint16_t stream_id,
